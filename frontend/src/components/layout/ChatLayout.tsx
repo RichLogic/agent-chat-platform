@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useConversations } from '../../hooks/useConversations'
 import { useStreamChat } from '../../hooks/useStreamChat'
+import { useShare } from '../../hooks/useShare'
 import Sidebar from './Sidebar'
 import ChatArea from '../chat/ChatArea'
 import ChatInput from '../chat/ChatInput'
@@ -15,6 +16,10 @@ export default function ChatLayout() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [traceRunId, setTraceRunId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { shareInfo, loading: shareLoading, share, reset: resetShare } = useShare()
+  const [showSharePopover, setShowSharePopover] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const sharePopoverRef = useRef<HTMLDivElement>(null)
 
   const handleTitleUpdate = useCallback(
     (title: string) => {
@@ -29,9 +34,45 @@ export default function ChatLayout() {
     onTitleUpdate.current = handleTitleUpdate
   }, [handleTitleUpdate, onTitleUpdate])
 
+  // Close share popover on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sharePopoverRef.current && !sharePopoverRef.current.contains(e.target as Node)) {
+        setShowSharePopover(false)
+      }
+    }
+    if (showSharePopover) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSharePopover])
+
+  async function handleShareClick() {
+    if (!activeConvId) return
+    if (showSharePopover) {
+      setShowSharePopover(false)
+      return
+    }
+    const url = await share(activeConvId)
+    if (url) {
+      setShowSharePopover(true)
+      setCopied(false)
+    }
+  }
+
+  async function handleCopyShareUrl() {
+    if (shareInfo?.share_url) {
+      await navigator.clipboard.writeText(shareInfo.share_url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 3000)
+    }
+  }
+
   async function handleSelectConversation(id: string) {
     setActiveConvId(id)
     setTraceRunId(null)
+    setShowSharePopover(false)
+    resetShare()
     await loadMessages(id)
   }
 
@@ -40,6 +81,8 @@ export default function ChatLayout() {
     setActiveConvId(conv.id)
     setMessages([])
     setTraceRunId(null)
+    setShowSharePopover(false)
+    resetShare()
   }
 
   async function handleDeleteConversation(id: string) {
@@ -48,6 +91,8 @@ export default function ChatLayout() {
       setActiveConvId(null)
       setMessages([])
       setTraceRunId(null)
+      setShowSharePopover(false)
+      resetShare()
     }
   }
 
@@ -115,6 +160,46 @@ export default function ChatLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Share button */}
+            {activeConvId && !isStreaming && (
+              <div className="relative" ref={sharePopoverRef}>
+                <button
+                  onClick={handleShareClick}
+                  disabled={shareLoading}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface-dim disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3" />
+                      <circle cx="6" cy="12" r="3" />
+                      <circle cx="18" cy="19" r="3" />
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                    </svg>
+                    Share
+                  </span>
+                </button>
+                {showSharePopover && shareInfo?.share_url && (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-border bg-white p-3 shadow-lg">
+                    <p className="mb-2 text-xs font-medium text-text">Share link</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={shareInfo.share_url}
+                        className="flex-1 rounded border border-border bg-surface-dim px-2 py-1 text-xs text-text"
+                      />
+                      <button
+                        onClick={handleCopyShareUrl}
+                        className="shrink-0 rounded bg-primary px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-primary/90"
+                      >
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {isStreaming && (
               <button
                 onClick={stopStreaming}

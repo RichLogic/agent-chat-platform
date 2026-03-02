@@ -1,5 +1,11 @@
 import { API_BASE } from './constants'
-import type { UploadFileResponse } from '../types/api'
+import type {
+  CreateShareResponse,
+  ShareResponse,
+  SharedConversation,
+  SharedEventsResponse,
+  UploadFileResponse,
+} from '../types/api'
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: HeadersInit = { ...(options?.headers as Record<string, string>) }
@@ -39,4 +45,44 @@ export async function uploadFile(file: File): Promise<UploadFileResponse> {
   }
 
   return response.json() as Promise<UploadFileResponse>
+}
+
+// ---------------------------------------------------------------------------
+// Share APIs (authenticated)
+// ---------------------------------------------------------------------------
+
+export function createShare(conversationId: string): Promise<CreateShareResponse> {
+  return request<CreateShareResponse>(`/conversations/${conversationId}/share`, {
+    method: 'POST',
+  })
+}
+
+export function deleteShare(conversationId: string): Promise<void> {
+  return request<void>(`/conversations/${conversationId}/share`, {
+    method: 'DELETE',
+  })
+}
+
+export function getShareStatus(conversationId: string): Promise<ShareResponse> {
+  return request<ShareResponse>(`/conversations/${conversationId}/share`)
+}
+
+// ---------------------------------------------------------------------------
+// Public share APIs (no credentials)
+// ---------------------------------------------------------------------------
+
+export async function fetchSharedConversation(token: string): Promise<SharedConversation> {
+  const response = await fetch(`${API_BASE}/shared/${token}`)
+  if (!response.ok) {
+    throw new Error(`${response.status}`)
+  }
+  return response.json() as Promise<SharedConversation>
+}
+
+export async function fetchSharedEvents(token: string): Promise<SharedEventsResponse> {
+  const response = await fetch(`${API_BASE}/shared/${token}/events`)
+  if (!response.ok) {
+    throw new Error(`${response.status}`)
+  }
+  return response.json() as Promise<SharedEventsResponse>
 }

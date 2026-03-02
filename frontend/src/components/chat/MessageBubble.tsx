@@ -8,9 +8,10 @@ interface MessageBubbleProps {
   message: Message
   isStreaming?: boolean
   onViewTrace?: (runId: string) => void
+  expandedMode?: boolean
 }
 
-export default function MessageBubble({ message, isStreaming, onViewTrace }: MessageBubbleProps) {
+export default function MessageBubble({ message, isStreaming, onViewTrace, expandedMode }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0
   const showMarkdown = !isUser && !isStreaming && message.content
@@ -47,7 +48,7 @@ export default function MessageBubble({ message, isStreaming, onViewTrace }: Mes
         {/* Tool calls (shown before the text response) */}
         {hasToolCalls && (
           <div className="mb-2">
-            <ToolCallStatus toolCalls={message.toolCalls!} />
+            <ToolCallStatus toolCalls={message.toolCalls!} defaultExpanded={expandedMode} />
           </div>
         )}
 
@@ -67,8 +68,8 @@ export default function MessageBubble({ message, isStreaming, onViewTrace }: Mes
           )}
         </div>
 
-        {/* Trace button */}
-        {!isUser && message.run_id && !isStreaming && (
+        {/* Trace button (hidden in expanded mode — trace is shown inline) */}
+        {!expandedMode && !isUser && message.run_id && !isStreaming && (
           <button
             onClick={() => onViewTrace?.(message.run_id!)}
             className="mt-1 text-xs text-text-muted transition-colors hover:text-primary"

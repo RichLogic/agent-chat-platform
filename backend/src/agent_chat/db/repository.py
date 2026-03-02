@@ -306,3 +306,60 @@ async def get_file_chunks(
         query["page_number"] = {"$in": page_numbers}
     cursor = db.file_chunks.find(query).sort("page_number", 1)
     return [_doc_to_dict(doc) async for doc in cursor]
+
+
+# ---------------------------------------------------------------------------
+# Shares
+# ---------------------------------------------------------------------------
+
+async def create_share(share_token: str, conversation_id: str, user_id: str) -> dict:
+    """Create a share record for a conversation."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    doc = {
+        "share_token": share_token,
+        "conversation_id": conversation_id,
+        "user_id": user_id,
+        "created_at": now,
+    }
+    result = await db.shares.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return _doc_to_dict(doc)
+
+
+async def get_share_by_token(share_token: str) -> dict | None:
+    """Get a share by its token."""
+    db = get_db()
+    doc = await db.shares.find_one({"share_token": share_token})
+    if doc is None:
+        return None
+    return _doc_to_dict(doc)
+
+
+async def get_share_by_conversation(conversation_id: str) -> dict | None:
+    """Get the share record for a conversation (if any)."""
+    db = get_db()
+    doc = await db.shares.find_one({"conversation_id": conversation_id})
+    if doc is None:
+        return None
+    return _doc_to_dict(doc)
+
+
+async def delete_share(conversation_id: str, user_id: str) -> bool:
+    """Delete the share for a conversation. Returns True if deleted."""
+    db = get_db()
+    result = await db.shares.delete_one(
+        {"conversation_id": conversation_id, "user_id": user_id}
+    )
+    return result.deleted_count > 0
+
+
+async def list_runs_by_conversation(conversation_id: str) -> list[dict]:
+    """List all runs for a conversation, ordered by created_at asc."""
+    db = get_db()
+    cursor = db.runs.find({"conversation_id": conversation_id}).sort("created_at", 1)
+    docs = []
+    async for doc in cursor:
+        doc["id"] = doc.pop("_id")
+        docs.append(doc)
+    return docs

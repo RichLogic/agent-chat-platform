@@ -4,6 +4,7 @@ import type { SSEEvent } from '../../types/events'
 interface TraceViewProps {
   runId: string
   onClose: () => void
+  defaultExpandAll?: boolean
 }
 
 type TraceEntryType = 'run.start' | 'messages.sent' | 'text' | 'tool.call' | 'tool.result' | 'run.finish' | 'error'
@@ -16,8 +17,8 @@ interface TraceEntry {
   collapsed?: boolean
 }
 
-function CollapsibleEntry({ entry }: { entry: TraceEntry }) {
-  const [open, setOpen] = useState(false)
+function CollapsibleEntry({ entry, defaultOpen = false }: { entry: TraceEntry; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   const isLong = entry.detail.length > 120
   const canToggle = isLong || entry.type === 'messages.sent'
 
@@ -84,7 +85,7 @@ function CollapsibleEntry({ entry }: { entry: TraceEntry }) {
   )
 }
 
-export default function TraceView({ runId, onClose }: TraceViewProps) {
+export default function TraceView({ runId, onClose, defaultExpandAll }: TraceViewProps) {
   const [entries, setEntries] = useState<TraceEntry[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -259,7 +260,7 @@ export default function TraceView({ runId, onClose }: TraceViewProps) {
           <p className="py-4 text-center text-xs text-text-muted">No events found.</p>
         )}
         {entries.map((entry, i) => (
-          <CollapsibleEntry key={i} entry={entry} />
+          <CollapsibleEntry key={i} entry={entry} defaultOpen={defaultExpandAll} />
         ))}
       </div>
     </div>

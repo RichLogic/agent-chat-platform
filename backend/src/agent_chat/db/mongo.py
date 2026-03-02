@@ -50,4 +50,8 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.file_chunks.create_index(
         [("content_hash", 1), ("page_number", 1)], unique=True
     )
+
+    # Shares
+    await db.shares.create_index("share_token", unique=True)
+    await db.shares.create_index("conversation_id", unique=True)
     logger.info("mongodb_indexes_created")

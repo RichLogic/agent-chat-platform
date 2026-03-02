@@ -63,3 +63,30 @@ export interface UploadFileResponse {
   parse_status: string
   is_duplicate: boolean
 }
+
+export interface ShareResponse {
+  shared: boolean
+  share_token?: string
+  share_url?: string
+}
+
+export interface CreateShareResponse {
+  share_token: string
+  share_url: string
+}
+
+export interface SharedConversation {
+  conversation: { title: string; created_at: string }
+  messages: Message[]
+}
+
+export interface SharedEvent {
+  run_id: string
+  type: string
+  ts: string
+  data: Record<string, unknown>
+}
+
+export interface SharedEventsResponse {
+  events: SharedEvent[]
+}

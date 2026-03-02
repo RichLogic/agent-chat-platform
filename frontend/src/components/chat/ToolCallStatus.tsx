@@ -3,6 +3,7 @@ import type { ToolCall } from '../../types/api'
 
 interface ToolCallStatusProps {
   toolCalls: ToolCall[]
+  defaultExpanded?: boolean
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -11,8 +12,8 @@ const TOOL_LABELS: Record<string, string> = {
   search: 'Search',
 }
 
-function ToolCallItem({ toolCall }: { toolCall: ToolCall }) {
-  const [expanded, setExpanded] = useState(false)
+function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCall; defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const isCalling = toolCall.status === 'calling'
   const label = TOOL_LABELS[toolCall.name] || toolCall.name
   const args = toolCall.arguments as Record<string, string>
@@ -189,11 +190,11 @@ function SearchResult({ result }: { result: Record<string, unknown> }) {
   )
 }
 
-export default function ToolCallStatus({ toolCalls }: ToolCallStatusProps) {
+export default function ToolCallStatus({ toolCalls, defaultExpanded }: ToolCallStatusProps) {
   return (
     <div className="flex flex-col gap-2">
       {toolCalls.map((tc, i) => (
-        <ToolCallItem key={`${tc.name}-${i}`} toolCall={tc} />
+        <ToolCallItem key={`${tc.name}-${i}`} toolCall={tc} defaultExpanded={defaultExpanded} />
       ))}
     </div>
   )
