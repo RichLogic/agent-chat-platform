@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { request } from '../lib/api'
-import type { Message, MessageListResponse, ToolCall } from '../types/api'
+import type { FileInfo, Message, MessageListResponse, ToolCall } from '../types/api'
 import type { SSEEvent, ToolCallData, ToolResultData } from '../types/events'
 
 export function useStreamChat() {
@@ -17,11 +17,13 @@ export function useStreamChat() {
     setMessages(data.items)
   }
 
-  async function sendMessage(conversationId: string, content: string) {
+  async function sendMessage(conversationId: string, content: string, fileIds?: string[], files?: FileInfo[]) {
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
       content,
+      file_ids: fileIds,
+      files,
       created_at: new Date().toISOString(),
     }
     setMessages(prev => [...prev, userMsg])
@@ -40,7 +42,7 @@ export function useStreamChat() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversation_id: conversationId, content }),
+        body: JSON.stringify({ conversation_id: conversationId, content, file_ids: fileIds }),
         credentials: 'include',
         signal: controller.signal,
       })

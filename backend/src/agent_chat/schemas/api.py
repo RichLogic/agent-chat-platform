@@ -10,6 +10,7 @@ from pydantic import BaseModel
 class ChatRequest(BaseModel):
     conversation_id: str
     content: str
+    file_ids: list[str] | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -23,6 +24,13 @@ class ConversationListResponse(BaseModel):
     items: list[ConversationResponse]
 
 
+class FileInfoResponse(BaseModel):
+    id: str
+    original_filename: str
+    size_bytes: int
+    page_count: int | None = None
+
+
 class MessageResponse(BaseModel):
     id: str
     role: str
@@ -31,6 +39,8 @@ class MessageResponse(BaseModel):
     model: str | None = None
     run_id: str | None = None
     token_usage: dict | None = None
+    file_ids: list[str] | None = None
+    files: list[FileInfoResponse] | None = None
     created_at: datetime
 
 

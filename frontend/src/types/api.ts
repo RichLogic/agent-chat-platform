@@ -24,6 +24,13 @@ export interface ToolCall {
   status: 'calling' | 'done'
 }
 
+export interface FileInfo {
+  id: string
+  original_filename: string
+  size_bytes: number
+  page_count?: number | null
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -33,6 +40,8 @@ export interface Message {
   run_id?: string
   token_usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number }
   toolCalls?: ToolCall[]
+  file_ids?: string[]
+  files?: FileInfo[]
   created_at: string
 }
 
@@ -43,4 +52,14 @@ export interface MessageListResponse {
 export interface ChatRequest {
   conversation_id: string
   content: string
+  file_ids?: string[]
+}
+
+export interface UploadFileResponse {
+  id: string
+  original_filename: string
+  size_bytes: number
+  page_count?: number | null
+  parse_status: string
+  is_duplicate: boolean
 }

@@ -43,4 +43,11 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.conversations.create_index([("user_id", 1), ("updated_at", -1)])
     await db.messages.create_index([("conversation_id", 1), ("created_at", 1)])
     await db.runs.create_index("conversation_id")
+
+    # File upload & PDF parsing
+    await db.files.create_index("content_hash", unique=True)
+    await db.files.create_index("uploaded_by")
+    await db.file_chunks.create_index(
+        [("content_hash", 1), ("page_number", 1)], unique=True
+    )
     logger.info("mongodb_indexes_created")

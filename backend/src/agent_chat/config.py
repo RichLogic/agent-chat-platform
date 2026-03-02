@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # File Storage
     data_dir: str = "data"
+    max_upload_size_mb: int = 50
 
     # LLM
     llm_provider: str = "poe"  # "poe" | "kimi"

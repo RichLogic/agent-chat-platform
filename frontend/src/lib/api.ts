@@ -1,4 +1,5 @@
 import { API_BASE } from './constants'
+import type { UploadFileResponse } from '../types/api'
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: HeadersInit = { ...(options?.headers as Record<string, string>) }
@@ -20,4 +21,22 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   }
 
   return response.json() as Promise<T>
+}
+
+export async function uploadFile(file: File): Promise<UploadFileResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${API_BASE}/files/upload`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(text || `Upload failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<UploadFileResponse>
 }

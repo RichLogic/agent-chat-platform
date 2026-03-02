@@ -6,6 +6,7 @@ import Sidebar from './Sidebar'
 import ChatArea from '../chat/ChatArea'
 import ChatInput from '../chat/ChatInput'
 import TraceView from '../replay/TraceView'
+import type { FileInfo } from '../../types/api'
 
 export default function ChatLayout() {
   const { user, logout } = useAuth()
@@ -50,13 +51,13 @@ export default function ChatLayout() {
     }
   }
 
-  async function handleSend(content: string) {
+  async function handleSend(content: string, fileIds?: string[], files?: FileInfo[]) {
     if (!activeConvId) {
       const conv = await createConversation()
       setActiveConvId(conv.id)
-      await sendMessage(conv.id, content)
+      await sendMessage(conv.id, content, fileIds, files)
     } else {
-      await sendMessage(activeConvId, content)
+      await sendMessage(activeConvId, content, fileIds, files)
     }
   }
 

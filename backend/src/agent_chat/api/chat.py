@@ -28,6 +28,7 @@ async def chat(
             user_content=body.content,
             user_id=user_id,
             settings=settings,
+            file_ids=body.file_ids,
         ):
             yield {
                 "event": event["type"],

@@ -1,4 +1,5 @@
 import type { Message } from '../../types/api'
+import FileAttachment from './FileAttachment'
 import Markdown from './Markdown'
 import StreamingText from './StreamingText'
 import ToolCallStatus from './ToolCallStatus'
@@ -38,6 +39,11 @@ export default function MessageBubble({ message, isStreaming, onViewTrace }: Mes
 
       {/* Content */}
       <div className={`max-w-[75%] ${isUser ? 'text-right' : ''}`}>
+        {/* File attachments */}
+        {message.files && message.files.length > 0 && (
+          <FileAttachment files={message.files} />
+        )}
+
         {/* Tool calls (shown before the text response) */}
         {hasToolCalls && (
           <div className="mb-2">

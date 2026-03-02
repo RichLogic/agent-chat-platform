@@ -18,6 +18,7 @@ from agent_chat.db.repository import (
     fail_run,
     finish_run,
     get_conversation,
+    get_files_by_ids,
     list_messages,
     update_conversation_title,
 )
@@ -66,11 +67,35 @@ def _try_parse_tool_call(text: str) -> dict | None:
     return None
 
 
+async def _build_file_hint(file_ids: list[str]) -> str:
+    """Build an attachment hint string for the LLM, listing uploaded files."""
+    files = await get_files_by_ids(file_ids)
+    if not files:
+        return ""
+    parts = []
+    for f in files:
+        page_info = f"{f['page_count']}页" if f.get("page_count") else "解析中"
+        parts.append(f"{f['original_filename']} (file_id: {f['id']}, {page_info})")
+    return "\n[附件: " + ", ".join(parts) + "] — 使用 read_pdf tool 读取内容"
+
+
+async def _enrich_message_content(msg: dict) -> str:
+    """If a message has file_ids, append the file hint to its content."""
+    content = msg["content"]
+    fids = msg.get("file_ids")
+    if fids:
+        hint = await _build_file_hint(fids)
+        if hint:
+            content += hint
+    return content
+
+
 async def handle_chat_stream(
     conversation_id: str,
     user_content: str,
     user_id: str,
     settings: Settings,
+    file_ids: list[str] | None = None,
 ) -> AsyncIterator[dict]:
     """Yields SSE event dicts for the chat stream, with tool calling support."""
     # Verify conversation ownership
@@ -80,7 +105,7 @@ async def handle_chat_stream(
         return
 
     # Save user message
-    await create_message(conversation_id, "user", user_content)
+    await create_message(conversation_id, "user", user_content, file_ids=file_ids)
 
     # Create provider and run
     provider = create_provider(settings)
@@ -112,7 +137,8 @@ async def handle_chat_stream(
         system_prompt = _build_tool_dispatch_prompt(prompts)
         messages = [system_prompt]
         for msg in history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+            content = await _enrich_message_content(msg)
+            messages.append({"role": msg["role"], "content": content})
 
         # Emit messages.sent for the first LLM call
         msgs_sent_event = _make_event("messages.sent", {
@@ -187,7 +213,8 @@ async def handle_chat_stream(
             }
             second_messages = [tool_response_prompt]
             for msg in history:
-                second_messages.append({"role": msg["role"], "content": msg["content"]})
+                content = await _enrich_message_content(msg)
+                second_messages.append({"role": msg["role"], "content": content})
             second_messages.append({
                 "role": "assistant",
                 "content": f"[Tool: {tool_name}({json.dumps(tool_args, ensure_ascii=False)})]\n\n{json.dumps(tool_result, ensure_ascii=False, indent=2)}",

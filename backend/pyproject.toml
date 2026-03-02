@@ -17,6 +17,8 @@ dependencies = [
     "structlog>=25.0.0",
     "python-dotenv>=1.0.0",
     "pyjwt>=2.9.0",
+    "pymupdf4llm>=0.0.17",
+    "python-multipart>=0.0.18",
 ]
 
 [project.optional-dependencies]

@@ -119,6 +119,7 @@ async def create_message(
     model: str | None = None,
     run_id: str | None = None,
     token_usage: dict | None = None,
+    file_ids: list[str] | None = None,
 ) -> dict:
     """Create a new message in a conversation."""
     db = get_db()
@@ -131,6 +132,7 @@ async def create_message(
         "model": model,
         "run_id": run_id,
         "token_usage": token_usage,
+        "file_ids": file_ids,
         "created_at": now,
     }
     result = await db.messages.insert_one(doc)
@@ -208,3 +210,99 @@ async def count_messages(conversation_id: str) -> int:
     """Count messages in a conversation."""
     db = get_db()
     return await db.messages.count_documents({"conversation_id": conversation_id})
+
+
+# ---------------------------------------------------------------------------
+# Files
+# ---------------------------------------------------------------------------
+
+async def find_file_by_hash(content_hash: str) -> dict | None:
+    """Find a file by its content hash (for deduplication)."""
+    db = get_db()
+    doc = await db.files.find_one({"content_hash": content_hash})
+    if doc is None:
+        return None
+    return _doc_to_dict(doc)
+
+
+async def create_file(
+    uploaded_by: str,
+    content_hash: str,
+    original_filename: str,
+    mime_type: str,
+    size_bytes: int,
+    storage_path: str,
+    page_count: int | None = None,
+    parse_status: str = "pending",
+) -> dict:
+    """Create a file metadata record."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    doc = {
+        "uploaded_by": uploaded_by,
+        "content_hash": content_hash,
+        "original_filename": original_filename,
+        "mime_type": mime_type,
+        "size_bytes": size_bytes,
+        "storage_path": storage_path,
+        "page_count": page_count,
+        "parse_status": parse_status,
+        "created_at": now,
+    }
+    result = await db.files.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return _doc_to_dict(doc)
+
+
+async def get_file(file_id: str) -> dict | None:
+    """Get a file by id."""
+    db = get_db()
+    doc = await db.files.find_one({"_id": ObjectId(file_id)})
+    if doc is None:
+        return None
+    return _doc_to_dict(doc)
+
+
+async def get_files_by_ids(file_ids: list[str]) -> list[dict]:
+    """Get multiple files by their ids."""
+    if not file_ids:
+        return []
+    db = get_db()
+    object_ids = [ObjectId(fid) for fid in file_ids]
+    cursor = db.files.find({"_id": {"$in": object_ids}})
+    return [_doc_to_dict(doc) async for doc in cursor]
+
+
+async def update_file_parse_status(
+    file_id: str, status: str, page_count: int | None = None
+) -> None:
+    """Update parse status (and optionally page_count) of a file."""
+    db = get_db()
+    update: dict = {"$set": {"parse_status": status}}
+    if page_count is not None:
+        update["$set"]["page_count"] = page_count
+    await db.files.update_one({"_id": ObjectId(file_id)}, update)
+
+
+# ---------------------------------------------------------------------------
+# File Chunks
+# ---------------------------------------------------------------------------
+
+async def create_file_chunks(chunks: list[dict]) -> None:
+    """Bulk insert parsed file chunks."""
+    if not chunks:
+        return
+    db = get_db()
+    await db.file_chunks.insert_many(chunks)
+
+
+async def get_file_chunks(
+    content_hash: str, page_numbers: list[int] | None = None
+) -> list[dict]:
+    """Get parsed chunks for a file, optionally filtered by page numbers."""
+    db = get_db()
+    query: dict = {"content_hash": content_hash}
+    if page_numbers:
+        query["page_number"] = {"$in": page_numbers}
+    cursor = db.file_chunks.find(query).sort("page_number", 1)
+    return [_doc_to_dict(doc) async for doc in cursor]

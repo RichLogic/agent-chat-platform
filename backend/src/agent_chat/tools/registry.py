@@ -52,6 +52,8 @@ def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.weather import WeatherTool
     from agent_chat.tools.news import NewsTool
     from agent_chat.tools.search import SearchTool
+    from agent_chat.tools.read_pdf import ReadPdfTool
     registry.register(WeatherTool())
     registry.register(NewsTool())
     registry.register(SearchTool())
+    registry.register(ReadPdfTool())

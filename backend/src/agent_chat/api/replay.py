@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
 from agent_chat.auth.middleware import get_current_user_id
-from agent_chat.db.repository import get_conversation, get_run, list_messages
+from agent_chat.db.repository import get_conversation, get_files_by_ids, get_run, list_messages
 from agent_chat.config import get_settings
 from agent_chat.storage.file_store import read_events
 
@@ -48,4 +48,29 @@ async def list_conversation_messages(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     messages = await list_messages(conversation_id)
+
+    # Resolve file_ids to file metadata for frontend display
+    all_file_ids: set[str] = set()
+    for msg in messages:
+        fids = msg.get("file_ids")
+        if fids:
+            all_file_ids.update(fids)
+
+    if all_file_ids:
+        files = await get_files_by_ids(list(all_file_ids))
+        files_map = {f["id"]: f for f in files}
+        for msg in messages:
+            fids = msg.get("file_ids")
+            if fids:
+                msg["files"] = [
+                    {
+                        "id": files_map[fid]["id"],
+                        "original_filename": files_map[fid]["original_filename"],
+                        "size_bytes": files_map[fid]["size_bytes"],
+                        "page_count": files_map[fid].get("page_count"),
+                    }
+                    for fid in fids
+                    if fid in files_map
+                ]
+
     return {"items": messages}
