@@ -13,6 +13,7 @@ const TOOL_LABELS: Record<string, string> = {
   read_pdf: 'Read PDF',
   search_memory: 'Memory',
   kb_search: 'KB Search',
+  ingest_webpage: 'Save Page',
 }
 
 function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCall; defaultExpanded?: boolean }) {
