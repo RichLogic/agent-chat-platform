@@ -57,7 +57,9 @@ class WeatherTool(Tool):
         "required": ["city"],
     }
 
-    async def execute(self, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         city = arguments.get("city", "")
         if not city:
             return {"error": "Missing city parameter"}

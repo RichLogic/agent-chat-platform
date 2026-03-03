@@ -7,6 +7,7 @@ import Sidebar from './Sidebar'
 import ChatArea from '../chat/ChatArea'
 import ChatInput from '../chat/ChatInput'
 import TraceView from '../replay/TraceView'
+import { compressConversation } from '../../lib/api'
 import type { FileInfo } from '../../types/api'
 
 export default function ChatLayout() {
@@ -69,6 +70,10 @@ export default function ChatLayout() {
   }
 
   async function handleSelectConversation(id: string) {
+    // Trigger memory compression for the conversation we're leaving
+    if (activeConvId && activeConvId !== id) {
+      compressConversation(activeConvId).catch(() => {})
+    }
     setActiveConvId(id)
     setTraceRunId(null)
     setShowSharePopover(false)

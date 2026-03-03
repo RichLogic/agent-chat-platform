@@ -363,3 +363,88 @@ async def list_runs_by_conversation(conversation_id: str) -> list[dict]:
         doc["id"] = doc.pop("_id")
         docs.append(doc)
     return docs
+
+
+# ---------------------------------------------------------------------------
+# Memories
+# ---------------------------------------------------------------------------
+
+async def create_memory(
+    user_id: str,
+    conversation_id: str,
+    content: str,
+    embedding: list[float],
+    memory_type: str,
+) -> dict:
+    """Create a memory record with its embedding vector."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    doc = {
+        "user_id": user_id,
+        "conversation_id": conversation_id,
+        "content": content,
+        "embedding": embedding,
+        "memory_type": memory_type,  # "message" | "summary"
+        "is_compressed": False,
+        "created_at": now,
+    }
+    result = await db.memories.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return _doc_to_dict(doc)
+
+
+async def search_memories_vector(
+    user_id: str, query_embedding: list[float], limit: int = 5
+) -> list[dict]:
+    """Search memories using MongoDB Atlas vector search."""
+    db = get_db()
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "memory_vector_index",
+                "path": "embedding",
+                "queryVector": query_embedding,
+                "numCandidates": 50,
+                "limit": limit,
+                "filter": {
+                    "$and": [
+                        {"user_id": {"$eq": user_id}},
+                        {"is_compressed": {"$ne": True}},
+                    ],
+                },
+            }
+        },
+        {
+            "$project": {
+                "content": 1,
+                "memory_type": 1,
+                "conversation_id": 1,
+                "created_at": 1,
+                "score": {"$meta": "vectorSearchScore"},
+            }
+        },
+    ]
+    results = []
+    async for doc in db.memories.aggregate(pipeline):
+        doc["id"] = str(doc.pop("_id"))
+        results.append(doc)
+    return results
+
+
+async def get_uncompressed_memories(conversation_id: str) -> list[dict]:
+    """Get all uncompressed message memories for a conversation."""
+    db = get_db()
+    cursor = db.memories.find(
+        {"conversation_id": conversation_id, "memory_type": "message", "is_compressed": False},
+        {"embedding": 0},  # exclude large embedding field
+    ).sort("created_at", 1)
+    return [_doc_to_dict(doc) async for doc in cursor]
+
+
+async def mark_memories_compressed(conversation_id: str) -> None:
+    """Mark all message memories in a conversation as compressed."""
+    db = get_db()
+    await db.memories.update_many(
+        {"conversation_id": conversation_id, "memory_type": "message", "is_compressed": False},
+        {"$set": {"is_compressed": True}},
+    )

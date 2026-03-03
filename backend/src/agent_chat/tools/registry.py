@@ -29,11 +29,13 @@ class ToolRegistry:
             })
         return json.dumps(tools, ensure_ascii=False, indent=2)
 
-    async def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self, name: str, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         tool = self._tools.get(name)
         if not tool:
             return {"error": f"Unknown tool: {name}"}
-        return await tool.execute(arguments)
+        return await tool.execute(arguments, context)
 
 
 _registry: ToolRegistry | None = None
@@ -53,7 +55,9 @@ def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.news import NewsTool
     from agent_chat.tools.search import SearchTool
     from agent_chat.tools.read_pdf import ReadPdfTool
+    from agent_chat.tools.search_memory import SearchMemoryTool
     registry.register(WeatherTool())
     registry.register(NewsTool())
     registry.register(SearchTool())
     registry.register(ReadPdfTool())
+    registry.register(SearchMemoryTool())

@@ -68,6 +68,14 @@ export function getShareStatus(conversationId: string): Promise<ShareResponse> {
 }
 
 // ---------------------------------------------------------------------------
+// Memory APIs (authenticated)
+// ---------------------------------------------------------------------------
+
+export function compressConversation(conversationId: string): Promise<void> {
+  return request<void>(`/conversations/${conversationId}/compress`, { method: 'POST' })
+}
+
+// ---------------------------------------------------------------------------
 // Public share APIs (no credentials)
 // ---------------------------------------------------------------------------
 

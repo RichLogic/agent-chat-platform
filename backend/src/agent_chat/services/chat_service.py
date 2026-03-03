@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator
@@ -107,6 +108,10 @@ async def handle_chat_stream(
     # Save user message
     await create_message(conversation_id, "user", user_content, file_ids=file_ids)
 
+    # Ingest user message into memory (background, non-blocking)
+    from agent_chat.services.memory_service import ingest_user_message
+    asyncio.create_task(ingest_user_message(user_id, conversation_id, user_content))
+
     # Create provider and run
     provider = create_provider(settings)
     run_id = uuid.uuid4().hex
@@ -196,7 +201,9 @@ async def handle_chat_stream(
 
             # Execute the tool
             registry = get_registry()
-            tool_result = await registry.execute(tool_name, tool_args)
+            tool_result = await registry.execute(
+                tool_name, tool_args, context={"user_id": user_id}
+            )
 
             # Emit tool.result event
             tool_result_event = _make_event("tool.result", {

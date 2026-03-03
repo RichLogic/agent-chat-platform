@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # Frontend
     frontend_url: str = "http://localhost:8300"
 
+    # Memory / Embedding
+    embedding_model: str = "all-MiniLM-L6-v2"
+
     # Logging
     log_level: str = "INFO"
 

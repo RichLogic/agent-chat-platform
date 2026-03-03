@@ -54,4 +54,38 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     # Shares
     await db.shares.create_index("share_token", unique=True)
     await db.shares.create_index("conversation_id", unique=True)
+
+    # Memories
+    await db.memories.create_index([("user_id", 1), ("is_compressed", 1)])
+    await db.memories.create_index("conversation_id")
+    await _ensure_vector_search_index(db)
+
     logger.info("mongodb_indexes_created")
+
+
+async def _ensure_vector_search_index(db: AsyncIOMotorDatabase) -> None:
+    """Create vector search index for memories collection (MongoDB Atlas Local)."""
+    try:
+        await db.command({
+            "createSearchIndexes": "memories",
+            "indexes": [{
+                "name": "memory_vector_index",
+                "type": "vectorSearch",
+                "definition": {
+                    "fields": [
+                        {
+                            "path": "embedding",
+                            "numDimensions": 384,
+                            "type": "vector",
+                            "similarity": "cosine",
+                        },
+                        {"path": "user_id", "type": "filter"},
+                        {"path": "is_compressed", "type": "filter"},
+                    ],
+                },
+            }],
+        })
+        logger.info("vector_search_index_created")
+    except Exception as e:
+        # Index may already exist or Atlas Local not available
+        logger.debug("vector_search_index_skipped", reason=str(e))

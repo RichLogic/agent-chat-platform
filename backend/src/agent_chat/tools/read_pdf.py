@@ -46,7 +46,9 @@ class ReadPdfTool(Tool):
         "required": ["file_id"],
     }
 
-    async def execute(self, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         file_id = arguments.get("file_id", "")
         pages_str = arguments.get("pages", "")
 

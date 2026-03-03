@@ -19,6 +19,7 @@ dependencies = [
     "pyjwt>=2.9.0",
     "pymupdf4llm>=0.0.17",
     "python-multipart>=0.0.18",
+    "sentence-transformers>=3.0.0",
 ]
 
 [project.optional-dependencies]

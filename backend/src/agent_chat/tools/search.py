@@ -34,7 +34,9 @@ class SearchTool(Tool):
         "required": ["query"],
     }
 
-    async def execute(self, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         query = arguments.get("query", "").strip()
         if not query:
             return {"error": "Missing query parameter"}

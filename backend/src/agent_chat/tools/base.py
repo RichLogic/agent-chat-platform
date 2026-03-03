@@ -12,5 +12,7 @@ class Tool(ABC):
     parameters: dict[str, Any]
 
     @abstractmethod
-    async def execute(self, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def execute(
+        self, arguments: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Execute the tool and return results."""
