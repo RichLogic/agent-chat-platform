@@ -7,7 +7,7 @@ interface TraceViewProps {
   defaultExpandAll?: boolean
 }
 
-type TraceEntryType = 'run.start' | 'messages.sent' | 'text' | 'tool.call' | 'tool.result' | 'run.finish' | 'error'
+type TraceEntryType = 'run.start' | 'messages.sent' | 'text' | 'tool.call' | 'tool.result' | 'provider.fallback' | 'run.finish' | 'error'
 
 interface TraceEntry {
   type: TraceEntryType
@@ -15,9 +15,10 @@ interface TraceEntry {
   label: string
   detail: string
   collapsed?: boolean
+  stepIndex?: number
 }
 
-function CollapsibleEntry({ entry, defaultOpen = false }: { entry: TraceEntry; defaultOpen?: boolean }) {
+function CollapsibleEntry({ entry, defaultOpen = false, stepDuration }: { entry: TraceEntry; defaultOpen?: boolean; stepDuration?: string }) {
   const [open, setOpen] = useState(defaultOpen)
   const isLong = entry.detail.length > 120
   const canToggle = isLong || entry.type === 'messages.sent'
@@ -29,6 +30,7 @@ function CollapsibleEntry({ entry, defaultOpen = false }: { entry: TraceEntry; d
     text: 'border-l-primary',
     'tool.call': 'border-l-amber-400',
     'tool.result': 'border-l-amber-400',
+    'provider.fallback': 'border-l-yellow-400',
     error: 'border-l-error',
   }
 
@@ -39,6 +41,7 @@ function CollapsibleEntry({ entry, defaultOpen = false }: { entry: TraceEntry; d
     text: 'bg-primary/15 text-primary',
     'tool.call': 'bg-amber-500/15 text-amber-700',
     'tool.result': 'bg-amber-500/15 text-amber-700',
+    'provider.fallback': 'bg-yellow-500/15 text-yellow-700',
     error: 'bg-error/15 text-error',
   }
 
@@ -67,6 +70,11 @@ function CollapsibleEntry({ entry, defaultOpen = false }: { entry: TraceEntry; d
           {entry.type}
         </span>
         <span className="flex-1 truncate text-xs text-text">{entry.label}</span>
+        {stepDuration && (
+          <span className="shrink-0 rounded bg-amber-500/10 px-1 text-[10px] text-amber-700">
+            {stepDuration}
+          </span>
+        )}
         {entry.ts && (
           <span className="shrink-0 text-[10px] text-text-muted">
             {new Date(entry.ts).toLocaleTimeString()}
@@ -164,21 +172,34 @@ export default function TraceView({ runId, onClose, defaultExpandAll }: TraceVie
                 })
                 textContent = ''
               }
-              const d = event.data as { name: string; arguments: Record<string, unknown> }
+              const d = event.data as { name: string; arguments: Record<string, unknown>; step_index?: number }
+              const stepLabel = d.step_index != null ? `Step ${d.step_index}: ` : ''
               result.push({
                 type: 'tool.call',
                 ts: event.ts,
-                label: `${d.name}(${JSON.stringify(d.arguments)})`,
+                label: `${stepLabel}${d.name}(${JSON.stringify(d.arguments)})`,
                 detail: JSON.stringify(d.arguments, null, 2),
+                stepIndex: d.step_index,
               })
             } else if (event.type === 'tool.result') {
-              const d = event.data as { name: string; result: Record<string, unknown> }
+              const d = event.data as { name: string; result: Record<string, unknown>; step_index?: number }
               const resultStr = JSON.stringify(d.result, null, 2)
+              const stepLabel = d.step_index != null ? `Step ${d.step_index}: ` : ''
               result.push({
                 type: 'tool.result',
                 ts: event.ts,
-                label: `${d.name} → result`,
+                label: `${stepLabel}${d.name} → result`,
                 detail: resultStr,
+                stepIndex: d.step_index,
+              })
+            } else if (event.type === 'provider.fallback') {
+              const d = event.data as { from_provider: string; to_provider: string; step_index: number }
+              result.push({
+                type: 'provider.fallback',
+                ts: event.ts,
+                label: `Fallback: ${d.from_provider} → ${d.to_provider}`,
+                detail: `Provider ${d.from_provider} failed, switching to ${d.to_provider}`,
+                stepIndex: d.step_index,
               })
             } else if (event.type === 'run.finish') {
               // Flush remaining text
@@ -259,9 +280,27 @@ export default function TraceView({ runId, onClose, defaultExpandAll }: TraceVie
         {!loading && entries.length === 0 && (
           <p className="py-4 text-center text-xs text-text-muted">No events found.</p>
         )}
-        {entries.map((entry, i) => (
-          <CollapsibleEntry key={i} entry={entry} defaultOpen={defaultExpandAll} />
-        ))}
+        {entries.map((entry, i) => {
+          // Compute step duration for tool.result entries
+          let stepDuration: string | undefined
+          if (entry.type === 'tool.result' && entry.ts && entry.stepIndex != null) {
+            const matchingCall = entries.find(
+              e => e.type === 'tool.call' && e.stepIndex === entry.stepIndex && e.ts,
+            )
+            if (matchingCall) {
+              const ms = new Date(entry.ts).getTime() - new Date(matchingCall.ts).getTime()
+              stepDuration = ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
+            }
+          }
+          return (
+            <CollapsibleEntry
+              key={i}
+              entry={entry}
+              defaultOpen={defaultExpandAll}
+              stepDuration={stepDuration}
+            />
+          )
+        })}
       </div>
     </div>
   )

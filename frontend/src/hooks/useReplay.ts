@@ -11,6 +11,7 @@ type StepType =
   | 'TEXT_DELTA'
   | 'TOOL_CALL'
   | 'TOOL_RESULT'
+  | 'PROVIDER_FALLBACK'
   | 'FINALIZE'
 
 interface TimelineStep {
@@ -19,9 +20,11 @@ interface TimelineStep {
   /** For TEXT_DELTA: the character(s) to append */
   content?: string
   /** For TOOL_CALL */
-  toolCall?: { name: string; arguments: Record<string, unknown> }
+  toolCall?: { name: string; arguments: Record<string, unknown>; step_index?: number }
   /** For TOOL_RESULT */
-  toolResult?: { name: string; result: Record<string, unknown> }
+  toolResult?: { name: string; result: Record<string, unknown>; step_index?: number }
+  /** For PROVIDER_FALLBACK */
+  fallback?: { from_provider: string; to_provider: string; step_index: number }
 }
 
 const BASE_DELAYS: Record<StepType, number> = {
@@ -30,6 +33,7 @@ const BASE_DELAYS: Record<StepType, number> = {
   TEXT_DELTA: 20,
   TOOL_CALL: 300,
   TOOL_RESULT: 500,
+  PROVIDER_FALLBACK: 400,
   FINALIZE: 300,
 }
 
@@ -84,18 +88,25 @@ function buildTimeline(messages: Message[], events: SharedEvent[]): TimelineStep
             steps.push({ type: 'TEXT_DELTA', messageIndex: i, content: data.content })
           }
         } else if (ev.type === 'tool.call') {
-          const data = ev.data as { name: string; arguments: Record<string, unknown> }
+          const data = ev.data as { name: string; arguments: Record<string, unknown>; step_index?: number }
           steps.push({
             type: 'TOOL_CALL',
             messageIndex: i,
-            toolCall: { name: data.name, arguments: data.arguments },
+            toolCall: { name: data.name, arguments: data.arguments, step_index: data.step_index },
           })
         } else if (ev.type === 'tool.result') {
-          const data = ev.data as { name: string; result: Record<string, unknown> }
+          const data = ev.data as { name: string; result: Record<string, unknown>; step_index?: number }
           steps.push({
             type: 'TOOL_RESULT',
             messageIndex: i,
-            toolResult: { name: data.name, result: data.result },
+            toolResult: { name: data.name, result: data.result, step_index: data.step_index },
+          })
+        } else if (ev.type === 'provider.fallback') {
+          const data = ev.data as { from_provider: string; to_provider: string; step_index: number }
+          steps.push({
+            type: 'PROVIDER_FALLBACK',
+            messageIndex: i,
+            fallback: data,
           })
         }
       }
@@ -196,6 +207,7 @@ export function useReplay(messages: Message[], events: SharedEvent[]) {
               name: step.toolCall!.name,
               arguments: step.toolCall!.arguments,
               status: 'calling',
+              step_index: step.toolCall!.step_index,
             },
           ]
           toolCallsAccRef.current.set(idx, newCalls)
@@ -211,7 +223,7 @@ export function useReplay(messages: Message[], events: SharedEvent[]) {
         case 'TOOL_RESULT': {
           const calls = toolCallsAccRef.current.get(idx) ?? []
           const updatedCalls = calls.map((tc) =>
-            tc.name === step.toolResult!.name && tc.status === 'calling'
+            tc.name === step.toolResult!.name && tc.status === 'calling' && tc.step_index === step.toolResult!.step_index
               ? { ...tc, result: step.toolResult!.result, status: 'done' as const }
               : tc,
           )
