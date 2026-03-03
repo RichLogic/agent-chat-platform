@@ -25,10 +25,13 @@ async def parse_pdf_to_chunks(
     data_dir: str,
     storage_path: str,
     content_hash: str,
+    user_id: str | None = None,
+    filename: str | None = None,
 ) -> None:
     """Parse a PDF file and store page chunks in MongoDB.
 
     Designed to be called via asyncio.create_task() as a background job.
+    When user_id and filename are provided, also ingests chunks into the KB.
     """
     await update_file_parse_status(file_id, "parsing")
     try:
@@ -50,6 +53,14 @@ async def parse_pdf_to_chunks(
         await create_file_chunks(chunks)
         await update_file_parse_status(file_id, "done", page_count=len(chunks))
         logger.info("pdf_parsed", file_id=file_id, pages=len(chunks))
+
+        # Ingest into knowledge base (non-blocking background task)
+        if user_id and filename:
+            try:
+                from agent_chat.services.kb_service import ingest_pdf_to_kb
+                await ingest_pdf_to_kb(file_id, user_id, content_hash, filename)
+            except Exception as kb_err:
+                logger.warning("kb_ingest_failed", file_id=file_id, error=str(kb_err))
 
     except Exception as e:
         logger.error("pdf_parse_failed", file_id=file_id, error=str(e))

@@ -60,6 +60,11 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.memories.create_index("conversation_id")
     await _ensure_vector_search_index(db)
 
+    # Knowledge base items
+    await db.kb_items.create_index([("user_id", 1), ("source_type", 1)])
+    await db.kb_items.create_index([("source_id", 1), ("chunk_index", 1)], unique=True)
+    await _ensure_kb_vector_search_index(db)
+
     logger.info("mongodb_indexes_created")
 
 
@@ -89,3 +94,30 @@ async def _ensure_vector_search_index(db: AsyncIOMotorDatabase) -> None:
     except Exception as e:
         # Index may already exist or Atlas Local not available
         logger.debug("vector_search_index_skipped", reason=str(e))
+
+
+async def _ensure_kb_vector_search_index(db: AsyncIOMotorDatabase) -> None:
+    """Create vector search index for kb_items collection."""
+    try:
+        await db.command({
+            "createSearchIndexes": "kb_items",
+            "indexes": [{
+                "name": "kb_vector_index",
+                "type": "vectorSearch",
+                "definition": {
+                    "fields": [
+                        {
+                            "path": "embedding",
+                            "numDimensions": 384,
+                            "type": "vector",
+                            "similarity": "cosine",
+                        },
+                        {"path": "user_id", "type": "filter"},
+                        {"path": "source_type", "type": "filter"},
+                    ],
+                },
+            }],
+        })
+        logger.info("kb_vector_search_index_created")
+    except Exception as e:
+        logger.debug("kb_vector_search_index_skipped", reason=str(e))

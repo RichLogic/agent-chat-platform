@@ -12,6 +12,7 @@ const TOOL_LABELS: Record<string, string> = {
   search: 'Search',
   read_pdf: 'Read PDF',
   search_memory: 'Memory',
+  kb_search: 'KB Search',
 }
 
 function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCall; defaultExpanded?: boolean }) {
@@ -37,6 +38,9 @@ function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCal
     if (toolCall.name === 'search_memory') {
       return `Searching memory: ${args.query || ''}...`
     }
+    if (toolCall.name === 'kb_search') {
+      return `Searching knowledge base: ${args.query || ''}...`
+    }
     return `Calling ${label}...`
   }
 
@@ -53,6 +57,9 @@ function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCal
       return `${label}: ${args.file_id ? '...' + String(args.file_id).slice(-6) : 'document'}`
     }
     if (toolCall.name === 'search_memory') {
+      return `${label}: ${args.query || ''}`
+    }
+    if (toolCall.name === 'kb_search') {
       return `${label}: ${args.query || ''}`
     }
     return label
@@ -97,7 +104,8 @@ function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCal
           {toolCall.name === 'weather' && <WeatherResult result={toolCall.result} />}
           {toolCall.name === 'news' && <NewsResult result={toolCall.result} />}
           {toolCall.name === 'search' && <SearchResult result={toolCall.result} />}
-          {toolCall.name !== 'weather' && toolCall.name !== 'news' && toolCall.name !== 'search' && (
+          {toolCall.name === 'kb_search' && <KBSearchResult result={toolCall.result} />}
+          {!['weather', 'news', 'search', 'kb_search'].includes(toolCall.name) && (
             <pre className="whitespace-pre-wrap text-text-muted">{JSON.stringify(toolCall.result, null, 2)}</pre>
           )}
         </div>
@@ -198,6 +206,40 @@ function SearchResult({ result }: { result: Record<string, unknown> }) {
           </a>
           {r.source && <div className="text-text-muted">{r.source}</div>}
           {r.snippet && <p className="text-text">{r.snippet}</p>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function KBSearchResult({ result }: { result: Record<string, unknown> }) {
+  if (result.error) {
+    return <span className="text-red-600">{String(result.error)}</span>
+  }
+
+  const results = (result.results || []) as Array<{
+    source_title: string
+    source_type: string
+    content: string
+    relevance: number
+    page_number?: number
+    url?: string
+  }>
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-text-muted">
+        {results.length} results for &quot;{String(result.query)}&quot;
+      </span>
+      {results.map((r, i) => (
+        <div key={i} className="border-t border-border pt-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-text">{r.source_title}</span>
+            <span className="text-text-muted text-[10px]">{r.source_type}</span>
+            {r.page_number && <span className="text-text-muted text-[10px]">p.{r.page_number}</span>}
+            <span className="ml-auto text-text-muted text-[10px]">{(r.relevance * 100).toFixed(0)}%</span>
+          </div>
+          <p className="text-text line-clamp-3">{r.content}</p>
         </div>
       ))}
     </div>

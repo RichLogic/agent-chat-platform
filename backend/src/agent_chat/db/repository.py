@@ -484,6 +484,60 @@ async def mark_memories_compressed(conversation_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Knowledge Base Items
+# ---------------------------------------------------------------------------
+
+async def create_kb_items(items: list[dict]) -> None:
+    """Bulk insert knowledge base items."""
+    if not items:
+        return
+    db = get_db()
+    await db.kb_items.insert_many(items)
+
+
+async def search_kb_vector(
+    user_id: str,
+    query_embedding: list[float],
+    limit: int = 5,
+    source_type: str | None = None,
+) -> list[dict]:
+    """Search KB items using MongoDB Atlas vector search."""
+    db = get_db()
+    filters: dict = {"user_id": {"$eq": user_id}}
+    if source_type:
+        filters["source_type"] = {"$eq": source_type}
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "kb_vector_index",
+                "path": "embedding",
+                "queryVector": query_embedding,
+                "numCandidates": limit * 10,
+                "limit": limit,
+                "filter": {"$and": [{k: v} for k, v in filters.items()]},
+            }
+        },
+        {
+            "$addFields": {"score": {"$meta": "vectorSearchScore"}}
+        },
+        {
+            "$project": {"embedding": 0}
+        },
+    ]
+    results = []
+    async for doc in db.kb_items.aggregate(pipeline):
+        doc["id"] = str(doc.pop("_id"))
+        results.append(doc)
+    return results
+
+
+async def delete_kb_items_by_source(source_id: str) -> None:
+    """Delete all KB items for a given source (for re-ingestion)."""
+    db = get_db()
+    await db.kb_items.delete_many({"source_id": source_id})
+
+
+# ---------------------------------------------------------------------------
 # Stats
 # ---------------------------------------------------------------------------
 

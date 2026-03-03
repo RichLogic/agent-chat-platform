@@ -104,8 +104,10 @@ def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.search import SearchTool
     from agent_chat.tools.read_pdf import ReadPdfTool
     from agent_chat.tools.search_memory import SearchMemoryTool
+    from agent_chat.tools.kb_search import KBSearchTool
     registry.register(WeatherTool())
     registry.register(NewsTool())
     registry.register(SearchTool())
     registry.register(ReadPdfTool())
     registry.register(SearchMemoryTool())
+    registry.register(KBSearchTool())
