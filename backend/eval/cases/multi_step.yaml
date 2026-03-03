@@ -1,0 +1,39 @@
+- id: multi_step_001
+  category: multi_step
+  input: "搜索北京天气然后查相关新闻"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - response_not_empty: true
+
+- id: multi_step_002
+  category: multi_step
+  input: "先搜索一下Python最新版本，然后查查相关的技术新闻"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - response_not_empty: true
+
+- id: multi_step_003
+  category: multi_step
+  input: "查一下上海的天气，然后搜索上海最近有什么活动"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - response_not_empty: true
+
+- id: multi_step_004
+  category: multi_step
+  input: "搜索关于机器学习的文章，然后保存到知识库"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - response_not_empty: true
+
+- id: multi_step_005
+  category: multi_step
+  input: "查看我知识库里关于API的内容，然后搜索最新的API设计趋势"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true

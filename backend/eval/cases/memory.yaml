@@ -1,0 +1,79 @@
+- id: memory_001
+  category: memory
+  input: "你还记得我之前说过什么吗"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_002
+  category: memory
+  input: "我之前提到的那个项目叫什么名字"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_003
+  category: memory
+  input: "回忆一下我们之前聊过的内容"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_004
+  category: memory
+  input: "我上次跟你说的那个bug修好了吗"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - no_error: true
+
+- id: memory_005
+  category: memory
+  input: "搜索我的对话历史中关于React的讨论"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_006
+  category: memory
+  input: "我之前让你帮我写的那段代码是什么"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_007
+  category: memory
+  input: "查一下我们之前聊的关于数据库的内容"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - no_error: true
+
+- id: memory_008
+  category: memory
+  input: "你记不记得我的邮箱地址"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_009
+  category: memory
+  input: "之前聊天中有没有提到过部署方案"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - response_not_empty: true
+
+- id: memory_010
+  category: memory
+  input: "找一下我们之前讨论的API设计"
+  expected_tool: search_memory
+  assertions:
+    - tool_called: search_memory
+    - no_error: true

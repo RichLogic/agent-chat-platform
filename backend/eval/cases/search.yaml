@@ -1,0 +1,39 @@
+- id: search_001
+  category: search
+  input: "搜索最新的人工智能新闻"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - response_not_empty: true
+
+- id: search_002
+  category: search
+  input: "Python asyncio 教程"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - response_not_empty: true
+
+- id: search_003
+  category: search
+  input: "React hooks 最佳实践"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - response_not_empty: true
+
+- id: search_004
+  category: search
+  input: "MongoDB vector search 文档"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - no_error: true
+
+- id: search_005
+  category: search
+  input: "帮我搜一下 FastAPI 中间件怎么写"
+  expected_tool: search
+  assertions:
+    - tool_called: search
+    - response_not_empty: true

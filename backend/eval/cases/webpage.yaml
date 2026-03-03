@@ -1,0 +1,39 @@
+- id: webpage_001
+  category: webpage
+  input: "帮我保存这篇文章到知识库: https://example.com/article"
+  expected_tool: ingest_webpage
+  assertions:
+    - tool_called: ingest_webpage
+    - response_not_empty: true
+
+- id: webpage_002
+  category: webpage
+  input: "把这个网页存到知识库里 https://example.com/docs"
+  expected_tool: ingest_webpage
+  assertions:
+    - tool_called: ingest_webpage
+    - response_not_empty: true
+
+- id: webpage_003
+  category: webpage
+  input: "收藏这个链接的内容 https://example.com/blog/post-1"
+  expected_tool: ingest_webpage
+  assertions:
+    - tool_called: ingest_webpage
+    - no_error: true
+
+- id: webpage_004
+  category: webpage
+  input: "帮我抓取这个页面并存到知识库 https://example.com/tutorial"
+  expected_tool: ingest_webpage
+  assertions:
+    - tool_called: ingest_webpage
+    - response_not_empty: true
+
+- id: webpage_005
+  category: webpage
+  input: "保存这个网址的内容 https://example.com/reference"
+  expected_tool: ingest_webpage
+  assertions:
+    - tool_called: ingest_webpage
+    - no_error: true

@@ -1,0 +1,39 @@
+- id: news_001
+  category: news
+  input: "今天有什么科技新闻"
+  expected_tool: news
+  assertions:
+    - tool_called: news
+    - response_not_empty: true
+
+- id: news_002
+  category: news
+  input: "美国最新新闻"
+  expected_tool: news
+  assertions:
+    - tool_called: news
+    - response_not_empty: true
+
+- id: news_003
+  category: news
+  input: "最近有什么体育新闻"
+  expected_tool: news
+  assertions:
+    - tool_called: news
+    - no_error: true
+
+- id: news_004
+  category: news
+  input: "中国财经新闻头条"
+  expected_tool: news
+  assertions:
+    - tool_called: news
+    - response_not_empty: true
+
+- id: news_005
+  category: news
+  input: "日本今日新闻"
+  expected_tool: news
+  assertions:
+    - tool_called: news
+    - no_error: true

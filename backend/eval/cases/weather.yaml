@@ -1,0 +1,40 @@
+- id: weather_001
+  category: weather
+  input: "北京今天天气怎么样"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - response_not_empty: true
+    - no_error: true
+
+- id: weather_002
+  category: weather
+  input: "上海明天会下雨吗"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - response_not_empty: true
+
+- id: weather_003
+  category: weather
+  input: "东京的气温是多少度"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - response_not_empty: true
+
+- id: weather_004
+  category: weather
+  input: "纽约现在冷吗"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - response_not_empty: true
+
+- id: weather_005
+  category: weather
+  input: "查一下广州的天气"
+  expected_tool: weather
+  assertions:
+    - tool_called: weather
+    - no_error: true

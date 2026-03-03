@@ -1,0 +1,79 @@
+- id: pdf_rag_001
+  category: pdf_rag
+  input: "这篇论文第3页讲了什么"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true
+
+- id: pdf_rag_002
+  category: pdf_rag
+  input: "文档里提到了哪些关键概念"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true
+
+- id: pdf_rag_003
+  category: pdf_rag
+  input: "帮我总结一下上传的PDF"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true
+
+- id: pdf_rag_004
+  category: pdf_rag
+  input: "文件中关于算法的部分是什么"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - no_error: true
+
+- id: pdf_rag_005
+  category: pdf_rag
+  input: "读一下我上传的第一个文档的前5页"
+  expected_tool: read_pdf
+  assertions:
+    - tool_called: read_pdf
+    - response_not_empty: true
+
+- id: pdf_rag_006
+  category: pdf_rag
+  input: "我的知识库里有关机器学习的内容"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true
+
+- id: pdf_rag_007
+  category: pdf_rag
+  input: "搜索知识库中关于数据库设计的内容"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - no_error: true
+
+- id: pdf_rag_008
+  category: pdf_rag
+  input: "文档中结论部分说了什么"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true
+
+- id: pdf_rag_009
+  category: pdf_rag
+  input: "这个PDF讲的是什么主题"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - response_not_empty: true
+
+- id: pdf_rag_010
+  category: pdf_rag
+  input: "帮我查找文档中关于性能优化的建议"
+  expected_tool: kb_search
+  assertions:
+    - tool_called: kb_search
+    - no_error: true

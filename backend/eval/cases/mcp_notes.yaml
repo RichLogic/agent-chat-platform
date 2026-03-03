@@ -1,0 +1,39 @@
+- id: mcp_notes_001
+  category: mcp_notes
+  input: "帮我创建一个笔记，标题是会议纪要"
+  expected_tool: create_markdown_note
+  assertions:
+    - tool_called: create_markdown_note
+    - response_not_empty: true
+
+- id: mcp_notes_002
+  category: mcp_notes
+  input: "列出我所有的笔记"
+  expected_tool: list_notes
+  assertions:
+    - tool_called: list_notes
+    - no_error: true
+
+- id: mcp_notes_003
+  category: mcp_notes
+  input: "写一个笔记记录今天的学习内容"
+  expected_tool: create_markdown_note
+  assertions:
+    - tool_called: create_markdown_note
+    - response_not_empty: true
+
+- id: mcp_notes_004
+  category: mcp_notes
+  input: "读一下我的会议纪要笔记"
+  expected_tool: read_note
+  assertions:
+    - tool_called: read_note
+    - response_not_empty: true
+
+- id: mcp_notes_005
+  category: mcp_notes
+  input: "查看inbox文件夹里有哪些笔记"
+  expected_tool: list_notes
+  assertions:
+    - tool_called: list_notes
+    - no_error: true
