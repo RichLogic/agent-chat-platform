@@ -30,12 +30,20 @@ class ToolCallData(BaseModel):
     tool_name: str
     arguments: dict
     risk_level: str = "read"
+    step_index: int = 0
 
 
 class ToolResultData(BaseModel):
     tool_name: str
     result: dict
     error_code: str | None = None
+    step_index: int = 0
+
+
+class ProviderFallbackData(BaseModel):
+    from_provider: str
+    to_provider: str
+    reason: str
 
 
 class ErrorData(BaseModel):

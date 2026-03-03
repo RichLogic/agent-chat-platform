@@ -10,6 +10,8 @@ const TOOL_LABELS: Record<string, string> = {
   weather: 'Weather',
   news: 'News',
   search: 'Search',
+  read_pdf: 'Read PDF',
+  search_memory: 'Memory',
 }
 
 function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCall; defaultExpanded?: boolean }) {
@@ -29,6 +31,12 @@ function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCal
     if (toolCall.name === 'search') {
       return `Searching: ${args.query || ''}...`
     }
+    if (toolCall.name === 'read_pdf') {
+      return `Reading PDF${args.file_id ? ' ...' + String(args.file_id).slice(-6) : ''}...`
+    }
+    if (toolCall.name === 'search_memory') {
+      return `Searching memory: ${args.query || ''}...`
+    }
     return `Calling ${label}...`
   }
 
@@ -39,6 +47,12 @@ function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCal
       return `${label}: ${parts || 'headlines'}`
     }
     if (toolCall.name === 'search') {
+      return `${label}: ${args.query || ''}`
+    }
+    if (toolCall.name === 'read_pdf') {
+      return `${label}: ${args.file_id ? '...' + String(args.file_id).slice(-6) : 'document'}`
+    }
+    if (toolCall.name === 'search_memory') {
       return `${label}: ${args.query || ''}`
     }
     return label

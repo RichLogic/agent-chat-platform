@@ -82,7 +82,7 @@ export function useStreamChat() {
             setCurrentRunId(runId)
           } else if (event.type === 'tool.call') {
             const data = event.data as ToolCallData
-            toolCalls = [...toolCalls, { name: data.name, arguments: data.arguments, status: 'calling' }]
+            toolCalls = [...toolCalls, { name: data.name, arguments: data.arguments, status: 'calling', step_index: data.step_index }]
             const snapshot = [...toolCalls]
             setMessages(prev =>
               prev.map(m =>
@@ -92,7 +92,7 @@ export function useStreamChat() {
           } else if (event.type === 'tool.result') {
             const data = event.data as ToolResultData
             toolCalls = toolCalls.map(tc =>
-              tc.name === data.name && tc.status === 'calling'
+              tc.name === data.name && tc.status === 'calling' && tc.step_index === data.step_index
                 ? { ...tc, result: data.result, status: 'done' as const }
                 : tc,
             )

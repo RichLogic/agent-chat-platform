@@ -22,6 +22,7 @@ export interface ToolCall {
   arguments: Record<string, unknown>
   result?: Record<string, unknown>
   status: 'calling' | 'done'
+  step_index?: number
 }
 
 export interface FileInfo {

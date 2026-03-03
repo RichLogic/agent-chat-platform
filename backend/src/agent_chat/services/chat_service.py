@@ -1,4 +1,4 @@
-"""Core chat streaming service with tool calling support."""
+"""Core chat streaming service with multi-step tool calling support."""
 
 from __future__ import annotations
 
@@ -29,6 +29,8 @@ from agent_chat.storage.file_store import write_event
 from agent_chat.tools.registry import get_registry
 
 logger = structlog.get_logger()
+
+MAX_TOOL_STEPS = 5
 
 
 def _load_prompts() -> dict:
@@ -68,6 +70,19 @@ def _try_parse_tool_call(text: str) -> dict | None:
     return None
 
 
+def _merge_usage(a: dict | None, b: dict | None) -> dict | None:
+    """Merge two token usage dicts by summing values."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return {
+        "prompt_tokens": a.get("prompt_tokens", 0) + b.get("prompt_tokens", 0),
+        "completion_tokens": a.get("completion_tokens", 0) + b.get("completion_tokens", 0),
+        "total_tokens": a.get("total_tokens", 0) + b.get("total_tokens", 0),
+    }
+
+
 async def _build_file_hint(file_ids: list[str]) -> str:
     """Build an attachment hint string for the LLM, listing uploaded files."""
     files = await get_files_by_ids(file_ids)
@@ -98,7 +113,7 @@ async def handle_chat_stream(
     settings: Settings,
     file_ids: list[str] | None = None,
 ) -> AsyncIterator[dict]:
-    """Yields SSE event dicts for the chat stream, with tool calling support."""
+    """Yields SSE event dicts for the chat stream, with multi-step tool calling."""
     # Verify conversation ownership
     conversation = await get_conversation(conversation_id)
     if not conversation or conversation.get("user_id") != user_id:
@@ -145,128 +160,112 @@ async def handle_chat_stream(
             content = await _enrich_message_content(msg)
             messages.append({"role": msg["role"], "content": content})
 
-        # Emit messages.sent for the first LLM call
-        msgs_sent_event = _make_event("messages.sent", {
-            "call_index": 0,
-            "messages": messages,
-        })
-        await write_event(settings.data_dir, run_id, msgs_sent_event)
-
-        # Stream first LLM call with tool-call detection:
-        # - If first non-whitespace char is '{', buffer everything to check for tool call
-        # - Otherwise, stream text.delta events directly
+        # --- Multi-step tool loop ---
+        total_usage: dict | None = None
         accumulated_content = ""
-        token_usage = None
-        maybe_tool = None  # None = undecided, True = buffering, False = streaming
-        flushed_events: list[dict] = []
+        registry = get_registry()
 
-        async for chunk in provider.stream_chat(messages):
-            if chunk.content:
-                accumulated_content += chunk.content
-
-                if maybe_tool is None:
-                    # Check first non-whitespace char
-                    stripped = accumulated_content.lstrip()
-                    if not stripped:
-                        continue  # Only whitespace so far
-                    maybe_tool = stripped[0] == "{"
-
-                if not maybe_tool:
-                    # Stream directly — emit this chunk's content
-                    delta_event = _make_event("text.delta", {"content": chunk.content})
-                    yield delta_event
-                    await write_event(settings.data_dir, run_id, delta_event)
-
-            if chunk.usage:
-                token_usage = chunk.usage
-
-        # If we never decided (empty response), treat as non-tool
-        if maybe_tool is None:
-            maybe_tool = False
-
-        # Check for tool call
-        tool_call = _try_parse_tool_call(accumulated_content) if maybe_tool else None
-
-        if tool_call:
-            tool_name = tool_call["tool"]
-            tool_args = tool_call["arguments"]
-
-            # Emit tool.call event
-            tool_call_event = _make_event("tool.call", {
-                "name": tool_name,
-                "arguments": tool_args,
+        for step_index in range(MAX_TOOL_STEPS):
+            # Emit messages.sent
+            msgs_sent_event = _make_event("messages.sent", {
+                "call_index": step_index,
+                "messages": messages,
             })
-            yield tool_call_event
-            await write_event(settings.data_dir, run_id, tool_call_event)
+            await write_event(settings.data_dir, run_id, msgs_sent_event)
 
-            # Execute the tool
-            registry = get_registry()
-            tool_result = await registry.execute(
-                tool_name, tool_args, context={"user_id": user_id}
-            )
-
-            # Emit tool.result event
-            tool_result_event = _make_event("tool.result", {
-                "name": tool_name,
-                "result": tool_result,
-            })
-            yield tool_result_event
-            await write_event(settings.data_dir, run_id, tool_result_event)
-
-            # Second LLM call — stream response based on tool result
-            tool_response_prompt = {
-                "role": "system",
-                "content": prompts["tool_response"]["content"],
-            }
-            second_messages = [tool_response_prompt]
-            for msg in history:
-                content = await _enrich_message_content(msg)
-                second_messages.append({"role": msg["role"], "content": content})
-            second_messages.append({
-                "role": "assistant",
-                "content": f"[Tool: {tool_name}({json.dumps(tool_args, ensure_ascii=False)})]\n\n{json.dumps(tool_result, ensure_ascii=False, indent=2)}",
-            })
-            second_messages.append({
-                "role": "user",
-                "content": "请根据上面的工具结果回答我的问题。",
-            })
-
-            # Emit messages.sent for the second LLM call
-            msgs_sent_event_2 = _make_event("messages.sent", {
-                "call_index": 1,
-                "messages": second_messages,
-            })
-            await write_event(settings.data_dir, run_id, msgs_sent_event_2)
-
+            # Stream LLM with tool-call detection
             accumulated_content = ""
-            token_usage_2 = None
+            token_usage = None
+            maybe_tool = None  # None = undecided, True = buffering, False = streaming
 
-            async for chunk in provider.stream_chat(second_messages):
+            async for chunk in provider.stream_chat(messages):
                 if chunk.content:
                     accumulated_content += chunk.content
-                    delta_event = _make_event("text.delta", {"content": chunk.content})
-                    yield delta_event
-                    await write_event(settings.data_dir, run_id, delta_event)
+
+                    if maybe_tool is None:
+                        stripped = accumulated_content.lstrip()
+                        if not stripped:
+                            continue
+                        maybe_tool = stripped[0] == "{"
+
+                    if not maybe_tool:
+                        delta_event = _make_event("text.delta", {"content": chunk.content})
+                        yield delta_event
+                        await write_event(settings.data_dir, run_id, delta_event)
+
                 if chunk.usage:
-                    token_usage_2 = chunk.usage
+                    token_usage = chunk.usage
 
-            # Merge token usage from both calls
-            if token_usage and token_usage_2:
-                token_usage = {
-                    "prompt_tokens": token_usage["prompt_tokens"] + token_usage_2["prompt_tokens"],
-                    "completion_tokens": token_usage["completion_tokens"] + token_usage_2["completion_tokens"],
-                    "total_tokens": token_usage["total_tokens"] + token_usage_2["total_tokens"],
-                }
-            elif token_usage_2:
-                token_usage = token_usage_2
+            # Emit provider.fallback event if applicable
+            if hasattr(provider, "used_fallback") and provider.used_fallback:
+                fallback_event = _make_event("provider.fallback", {
+                    "from_provider": provider.primary.provider_name,
+                    "to_provider": provider.fallback.provider_name,
+                    "step_index": step_index,
+                })
+                yield fallback_event
+                await write_event(settings.data_dir, run_id, fallback_event)
 
-        elif maybe_tool:
-            # Looked like a tool call (started with {) but wasn't valid JSON tool call
-            # Emit the buffered content as a single text.delta
-            if accumulated_content:
+            if maybe_tool is None:
+                maybe_tool = False
+
+            total_usage = _merge_usage(total_usage, token_usage)
+
+            # Check for tool call
+            tool_call = _try_parse_tool_call(accumulated_content) if maybe_tool else None
+
+            if tool_call:
+                tool_name = tool_call["tool"]
+                tool_args = tool_call["arguments"]
+
+                # Emit tool.call with step_index
+                tool_call_event = _make_event("tool.call", {
+                    "name": tool_name,
+                    "arguments": tool_args,
+                    "step_index": step_index,
+                })
+                yield tool_call_event
+                await write_event(settings.data_dir, run_id, tool_call_event)
+
+                # Execute tool
+                tool_result = await registry.execute(
+                    tool_name, tool_args, context={"user_id": user_id}
+                )
+
+                # Emit tool.result with step_index
+                tool_result_event = _make_event("tool.result", {
+                    "name": tool_name,
+                    "result": tool_result,
+                    "step_index": step_index,
+                    "code": tool_result.get("code"),
+                })
+                yield tool_result_event
+                await write_event(settings.data_dir, run_id, tool_result_event)
+
+                # Append tool interaction to messages for next iteration
+                messages.append({
+                    "role": "assistant",
+                    "content": json.dumps(tool_call, ensure_ascii=False),
+                })
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"[Tool Result: {tool_name}]\n"
+                        f"{json.dumps(tool_result, ensure_ascii=False, indent=2)}"
+                    ),
+                })
+                continue  # next iteration
+
+            # Not a tool call — final text response
+            if maybe_tool and accumulated_content:
+                # Buffered content that looked like JSON but wasn't a valid tool call
                 delta_event = _make_event("text.delta", {"content": accumulated_content})
                 yield delta_event
                 await write_event(settings.data_dir, run_id, delta_event)
+            break
+        else:
+            # Exhausted MAX_TOOL_STEPS — use whatever accumulated_content we have
+            logger.warning("max_tool_steps_reached", run_id=run_id, steps=MAX_TOOL_STEPS)
 
         # Save assistant message
         await create_message(
@@ -276,15 +275,15 @@ async def handle_chat_stream(
             provider=provider.provider_name,
             model=provider.model,
             run_id=run_id,
-            token_usage=token_usage,
+            token_usage=total_usage,
         )
 
         # Finish run
-        await finish_run(run_id, token_usage)
+        await finish_run(run_id, total_usage)
 
         finish_event = _make_event("run.finish", {
             "finish_reason": "stop",
-            "token_usage": token_usage,
+            "token_usage": total_usage,
         })
         yield finish_event
         await write_event(settings.data_dir, run_id, finish_event)
