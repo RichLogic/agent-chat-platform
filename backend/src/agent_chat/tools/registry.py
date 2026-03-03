@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
+import jsonschema
+import structlog
+
 from agent_chat.tools.base import Tool
+
+logger = structlog.get_logger()
 
 
 class ToolRegistry:
@@ -26,6 +32,7 @@ class ToolRegistry:
                 "name": tool.name,
                 "description": tool.description,
                 "parameters": tool.parameters,
+                "risk_level": tool.risk_level,
             })
         return json.dumps(tools, ensure_ascii=False, indent=2)
 
@@ -34,8 +41,49 @@ class ToolRegistry:
     ) -> dict[str, Any]:
         tool = self._tools.get(name)
         if not tool:
-            return {"error": f"Unknown tool: {name}"}
-        return await tool.execute(arguments, context)
+            return {"error": f"Unknown tool: {name}", "code": "UNKNOWN_TOOL"}
+
+        # --- Schema validation ---
+        try:
+            jsonschema.validate(instance=arguments, schema=tool.parameters)
+        except jsonschema.ValidationError as exc:
+            return {"error": exc.message, "code": "INVALID_PARAMS"}
+
+        # --- Execute with timeout + retry ---
+        attempts = 1 + tool.max_retries
+        last_error: str = ""
+        for attempt in range(1, attempts + 1):
+            try:
+                result = await asyncio.wait_for(
+                    tool.execute(arguments, context),
+                    timeout=tool.timeout_seconds,
+                )
+                return result
+            except asyncio.TimeoutError:
+                last_error = (
+                    f"Tool '{name}' timed out after {tool.timeout_seconds}s"
+                )
+                logger.warning(
+                    "tool_timeout",
+                    tool=name,
+                    attempt=attempt,
+                    timeout=tool.timeout_seconds,
+                )
+            except Exception as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+                logger.warning(
+                    "tool_execution_error",
+                    tool=name,
+                    attempt=attempt,
+                    error=last_error,
+                )
+
+            if attempt < attempts:
+                await asyncio.sleep(min(2 ** (attempt - 1), 4))
+
+        # All attempts exhausted
+        code = "TIMEOUT" if "timed out" in last_error else "EXECUTION_ERROR"
+        return {"error": last_error, "code": code}
 
 
 _registry: ToolRegistry | None = None

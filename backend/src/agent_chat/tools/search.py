@@ -19,6 +19,7 @@ logger = structlog.get_logger()
 class SearchTool(Tool):
     name = "search"
     description = "搜索互联网获取最新信息。当用户询问事件详情、最新进展、或需要事实核查时使用。结果包含来源链接。"
+    risk_level = "read"
     parameters = {
         "type": "object",
         "properties": {

@@ -46,6 +46,7 @@ _WEATHER_CODES: dict[int, str] = {
 class WeatherTool(Tool):
     name = "weather"
     description = "查询指定城市的当前天气信息，包括温度、天气状况、风速等。"
+    risk_level = "read"
     parameters = {
         "type": "object",
         "properties": {

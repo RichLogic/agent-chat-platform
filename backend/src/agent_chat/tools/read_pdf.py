@@ -31,6 +31,7 @@ def _parse_pages_param(pages_str: str) -> list[int]:
 class ReadPdfTool(Tool):
     name = "read_pdf"
     description = "读取用户上传的 PDF 文件内容（Markdown格式）。可以读取全文或指定页码范围。"
+    risk_level = "read"
     parameters = {
         "type": "object",
         "properties": {

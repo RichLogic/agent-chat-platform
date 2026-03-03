@@ -12,6 +12,7 @@ from agent_chat.tools.base import Tool
 class SearchMemoryTool(Tool):
     name = "search_memory"
     description = "搜索用户的历史对话记忆。当用户提到「之前」「上次」「我说过」「你还记得吗」等需要回忆历史信息时使用。"
+    risk_level = "read"
     parameters = {
         "type": "object",
         "properties": {

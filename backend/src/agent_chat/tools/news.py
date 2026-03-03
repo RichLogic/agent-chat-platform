@@ -44,6 +44,7 @@ _CATEGORY_ALIASES: dict[str, str] = {
 class NewsTool(Tool):
     name = "news"
     description = "查询今日热点新闻头条。可以按国家和类别筛选。"
+    risk_level = "read"
     parameters = {
         "type": "object",
         "properties": {

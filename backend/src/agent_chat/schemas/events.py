@@ -26,6 +26,18 @@ class ConversationTitleData(BaseModel):
     title: str
 
 
+class ToolCallData(BaseModel):
+    tool_name: str
+    arguments: dict
+    risk_level: str = "read"
+
+
+class ToolResultData(BaseModel):
+    tool_name: str
+    result: dict
+    error_code: str | None = None
+
+
 class ErrorData(BaseModel):
     message: str
 
