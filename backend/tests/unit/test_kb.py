@@ -173,9 +173,10 @@ class TestKBServiceIngest:
 # ---------------------------------------------------------------------------
 
 class TestRegistryKBSearch:
-    def test_kb_search_registered(self) -> None:
+    @pytest.mark.asyncio
+    async def test_kb_search_registered(self) -> None:
         from agent_chat.tools.registry import ToolRegistry, _register_all_tools
         registry = ToolRegistry()
-        _register_all_tools(registry)
+        await _register_all_tools(registry)
         assert registry.get("kb_search") is not None
         assert registry.get("kb_search").name == "kb_search"

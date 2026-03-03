@@ -203,8 +203,9 @@ class TestIngestWebpageTool:
 # ---------------------------------------------------------------------------
 
 class TestRegistryIngestWebpage:
-    def test_registered(self) -> None:
+    @pytest.mark.asyncio
+    async def test_registered(self) -> None:
         from agent_chat.tools.registry import ToolRegistry, _register_all_tools
         registry = ToolRegistry()
-        _register_all_tools(registry)
+        await _register_all_tools(registry)
         assert registry.get("ingest_webpage") is not None

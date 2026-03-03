@@ -89,16 +89,16 @@ class ToolRegistry:
 _registry: ToolRegistry | None = None
 
 
-def get_registry() -> ToolRegistry:
+async def get_registry() -> ToolRegistry:
     """Get or create the global tool registry with all tools registered."""
     global _registry
     if _registry is None:
         _registry = ToolRegistry()
-        _register_all_tools(_registry)
+        await _register_all_tools(_registry)
     return _registry
 
 
-def _register_all_tools(registry: ToolRegistry) -> None:
+async def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.weather import WeatherTool
     from agent_chat.tools.news import NewsTool
     from agent_chat.tools.search import SearchTool
@@ -113,3 +113,14 @@ def _register_all_tools(registry: ToolRegistry) -> None:
     registry.register(SearchMemoryTool())
     registry.register(KBSearchTool())
     registry.register(IngestWebpageTool())
+
+    # MCP tool discovery (optional, non-blocking)
+    try:
+        from agent_chat.config import get_settings
+        settings = get_settings()
+        if settings.mcp_notes_url:
+            from agent_chat.tools.mcp_adapter import discover_and_register_mcp_tools
+            count = await discover_and_register_mcp_tools(registry, settings.mcp_notes_url)
+            logger.info("mcp_tools_discovered", count=count, url=settings.mcp_notes_url)
+    except Exception as e:
+        logger.debug("mcp_tools_skipped", reason=str(e))

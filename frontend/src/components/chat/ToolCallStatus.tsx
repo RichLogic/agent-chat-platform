@@ -14,6 +14,9 @@ const TOOL_LABELS: Record<string, string> = {
   search_memory: 'Memory',
   kb_search: 'KB Search',
   ingest_webpage: 'Save Page',
+  create_markdown_note: 'Create Note',
+  list_notes: 'List Notes',
+  read_note: 'Read Note',
 }
 
 function ToolCallItem({ toolCall, defaultExpanded = false }: { toolCall: ToolCall; defaultExpanded?: boolean }) {

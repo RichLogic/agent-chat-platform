@@ -8,5 +8,16 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  mcp-notes:
+    build: ./backend
+    container_name: agent-chat-mcp-notes
+    command: python -m mcp_notes
+    ports:
+      - "8302:8302"
+    environment:
+      - NOTES_ROOT=/app/data/notes
+    volumes:
+      - ./data/notes:/app/data/notes
+
 volumes:
   mongo_data:

@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # Memory / Embedding
     embedding_model: str = "all-MiniLM-L6-v2"
 
+    # MCP
+    mcp_notes_url: str = ""  # empty = disabled, e.g. "http://localhost:8302/mcp"
+    notes_root: str = "data/notes"
+
     # Logging
     log_level: str = "INFO"
 

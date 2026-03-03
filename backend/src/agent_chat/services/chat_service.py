@@ -48,9 +48,9 @@ def _make_event(event_type: str, data: dict) -> dict:
     }
 
 
-def _build_tool_dispatch_prompt(prompts: dict) -> dict:
+async def _build_tool_dispatch_prompt(prompts: dict) -> dict:
     """Build system prompt with tool schemas injected."""
-    registry = get_registry()
+    registry = await get_registry()
     template = prompts["tool_dispatch"]["content"]
     content = template.replace("{tools_schema}", registry.generate_schema())
     return {"role": "system", "content": content}
@@ -154,7 +154,7 @@ async def handle_chat_stream(
         # Load history and build messages array
         history = await list_messages(conversation_id)
         prompts = _load_prompts()
-        system_prompt = _build_tool_dispatch_prompt(prompts)
+        system_prompt = await _build_tool_dispatch_prompt(prompts)
         messages = [system_prompt]
         for msg in history:
             content = await _enrich_message_content(msg)
@@ -163,7 +163,7 @@ async def handle_chat_stream(
         # --- Multi-step tool loop ---
         total_usage: dict | None = None
         accumulated_content = ""
-        registry = get_registry()
+        registry = await get_registry()
 
         for step_index in range(MAX_TOOL_STEPS):
             # Emit messages.sent
