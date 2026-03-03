@@ -1,12 +1,22 @@
-version: "3.8"
 services:
   mongodb:
-    image: mongo:7.0
+    image: mongodb/mongodb-atlas-local:8.0
     container_name: agent-chat-mongo
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    container_name: agent-chat-backend
+    ports:
+      - "8301:8301"
+    env_file: .env
+    depends_on:
+      - mongodb
+    volumes:
+      - ./data:/app/data
 
   mcp-notes:
     build: ./backend
@@ -14,10 +24,21 @@ services:
     command: python -m mcp_notes
     ports:
       - "8302:8302"
+    env_file: .env
     environment:
       - NOTES_ROOT=/app/data/notes
+    depends_on:
+      - mongodb
     volumes:
       - ./data/notes:/app/data/notes
+
+  frontend:
+    build: ./frontend
+    container_name: agent-chat-frontend
+    ports:
+      - "8300:8300"
+    depends_on:
+      - backend
 
 volumes:
   mongo_data:
