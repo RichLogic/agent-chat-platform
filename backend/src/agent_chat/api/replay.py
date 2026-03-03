@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sse_starlette.sse import EventSourceResponse
 
 from agent_chat.auth.middleware import get_current_user_id
-from agent_chat.db.repository import get_conversation, get_files_by_ids, get_run, list_messages
+from agent_chat.db.repository import get_files_by_ids, get_run, get_user_conversation, list_messages
 from agent_chat.config import get_settings
 from agent_chat.storage.file_store import read_events
 
@@ -43,8 +43,8 @@ async def list_conversation_messages(
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """List all messages in a conversation."""
-    conversation = await get_conversation(conversation_id)
-    if not conversation or conversation.get("user_id") != user_id:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     messages = await list_messages(conversation_id)

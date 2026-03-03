@@ -92,10 +92,43 @@ async def delete_conversation(conversation_id: str, user_id: str) -> None:
     )
 
 
+async def cascade_delete_conversation(conversation_id: str, user_id: str) -> None:
+    """Soft delete a conversation and clean up related records."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    # 1. Soft delete the conversation
+    await db.conversations.update_one(
+        {"_id": ObjectId(conversation_id), "user_id": user_id},
+        {"$set": {"is_deleted": True, "deleted_at": now}},
+    )
+    # 2. Remove share link
+    await db.shares.delete_one(
+        {"conversation_id": conversation_id, "user_id": user_id}
+    )
+    # 3. Exclude memories from vector search
+    await db.memories.update_many(
+        {"conversation_id": conversation_id},
+        {"$set": {"is_compressed": True}},
+    )
+
+
 async def get_conversation(conversation_id: str) -> dict | None:
     """Get a conversation by id."""
     db = get_db()
     doc = await db.conversations.find_one({"_id": ObjectId(conversation_id)})
+    if doc is None:
+        return None
+    return _doc_to_dict(doc)
+
+
+async def get_user_conversation(conversation_id: str, user_id: str) -> dict | None:
+    """Get a non-deleted conversation owned by the given user."""
+    db = get_db()
+    doc = await db.conversations.find_one({
+        "_id": ObjectId(conversation_id),
+        "user_id": user_id,
+        "is_deleted": False,
+    })
     if doc is None:
         return None
     return _doc_to_dict(doc)
@@ -448,3 +481,39 @@ async def mark_memories_compressed(conversation_id: str) -> None:
         {"conversation_id": conversation_id, "memory_type": "message", "is_compressed": False},
         {"$set": {"is_compressed": True}},
     )
+
+
+# ---------------------------------------------------------------------------
+# Stats
+# ---------------------------------------------------------------------------
+
+async def get_conversation_stats(conversation_id: str) -> dict:
+    """Get aggregate stats for a conversation."""
+    db = get_db()
+    message_count = await db.messages.count_documents(
+        {"conversation_id": conversation_id}
+    )
+    run_count = await db.runs.count_documents(
+        {"conversation_id": conversation_id}
+    )
+    return {
+        "message_count": message_count,
+        "run_count": run_count,
+    }
+
+
+async def get_user_stats(user_id: str) -> dict:
+    """Get aggregate stats for a user."""
+    db = get_db()
+    conversation_count = await db.conversations.count_documents(
+        {"user_id": user_id, "is_deleted": False}
+    )
+    file_count = await db.files.count_documents({"uploaded_by": user_id})
+    memory_count = await db.memories.count_documents(
+        {"user_id": user_id, "is_compressed": False}
+    )
+    return {
+        "conversation_count": conversation_count,
+        "file_count": file_count,
+        "memory_count": memory_count,
+    }

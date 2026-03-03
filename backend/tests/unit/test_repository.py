@@ -5,14 +5,22 @@ from __future__ import annotations
 import asyncio
 
 from agent_chat.db.repository import (
+    cascade_delete_conversation,
     count_messages,
     create_conversation,
+    create_file,
+    create_memory,
     create_message,
     create_run,
+    create_share,
     delete_conversation,
     finish_run,
+    get_conversation_stats,
     get_run,
+    get_share_by_conversation,
     get_user,
+    get_user_conversation,
+    get_user_stats,
     list_conversations,
     list_messages,
     upsert_user,
@@ -149,3 +157,117 @@ async def test_count_messages(mock_db):
 
     count = await count_messages(conv["id"])
     assert count == 5
+
+
+# ---------------------------------------------------------------------------
+# Cascade delete
+# ---------------------------------------------------------------------------
+
+
+async def test_cascade_delete_removes_share(mock_db):
+    conv = await create_conversation("user-1")
+    await create_share("tok-1", conv["id"], "user-1")
+
+    # Verify share exists
+    share = await get_share_by_conversation(conv["id"])
+    assert share is not None
+
+    await cascade_delete_conversation(conv["id"], "user-1")
+
+    # Share should be gone
+    share = await get_share_by_conversation(conv["id"])
+    assert share is None
+
+
+async def test_cascade_delete_compresses_memories(mock_db):
+    conv = await create_conversation("user-1")
+    await create_memory(
+        user_id="user-1",
+        conversation_id=conv["id"],
+        content="test memory",
+        embedding=[0.1] * 10,
+        memory_type="message",
+    )
+
+    await cascade_delete_conversation(conv["id"], "user-1")
+
+    # Memory should be marked as compressed
+    from agent_chat.db.mongo import get_db
+
+    db = get_db()
+    mem = await db.memories.find_one({"conversation_id": conv["id"]})
+    assert mem["is_compressed"] is True
+
+
+# ---------------------------------------------------------------------------
+# get_user_conversation
+# ---------------------------------------------------------------------------
+
+
+async def test_get_user_conversation_not_found_if_deleted(mock_db):
+    conv = await create_conversation("user-1")
+    await delete_conversation(conv["id"], "user-1")
+
+    result = await get_user_conversation(conv["id"], "user-1")
+    assert result is None
+
+
+async def test_get_user_conversation_not_found_if_wrong_user(mock_db):
+    conv = await create_conversation("user-1")
+
+    result = await get_user_conversation(conv["id"], "user-2")
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Stats
+# ---------------------------------------------------------------------------
+
+
+async def test_conversation_stats(mock_db):
+    conv = await create_conversation("user-1")
+    for i in range(3):
+        await create_message(conv["id"], "user", f"msg {i}")
+    await create_run(
+        run_id="run-stat-1",
+        conversation_id=conv["id"],
+        user_id="user-1",
+        provider="poe",
+        model="test",
+        events_file="/tmp/events.jsonl",
+    )
+
+    stats = await get_conversation_stats(conv["id"])
+    assert stats["message_count"] == 3
+    assert stats["run_count"] == 1
+
+
+async def test_user_stats(mock_db):
+    # Create 2 conversations (1 deleted)
+    c1 = await create_conversation("user-1")
+    c2 = await create_conversation("user-1")
+    await delete_conversation(c2["id"], "user-1")
+
+    # Create a file
+    await create_file(
+        uploaded_by="user-1",
+        content_hash="abc123",
+        original_filename="test.pdf",
+        mime_type="application/pdf",
+        size_bytes=1024,
+        storage_path="/tmp/test.pdf",
+    )
+
+    # Create a memory
+    await create_memory(
+        user_id="user-1",
+        conversation_id=c1["id"],
+        content="test memory",
+        embedding=[0.1] * 10,
+        memory_type="message",
+    )
+
+    stats = await get_user_stats("user-1")
+    assert stats["conversation_count"] == 1  # Only non-deleted
+    assert stats["file_count"] == 1
+    assert stats["memory_count"] == 1

@@ -7,9 +7,11 @@ from starlette.responses import Response
 
 from agent_chat.auth.middleware import get_current_user_id
 from agent_chat.db.repository import (
+    cascade_delete_conversation,
     create_conversation,
-    delete_conversation,
-    get_conversation,
+    get_conversation_stats,
+    get_user_conversation,
+    get_user_stats,
     list_conversations,
 )
 
@@ -37,8 +39,26 @@ async def delete_conversation_endpoint(
     conversation_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> Response:
-    conversation = await get_conversation(conversation_id)
-    if not conversation or conversation.get("user_id") != user_id:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    await delete_conversation(conversation_id, user_id)
+    await cascade_delete_conversation(conversation_id, user_id)
     return Response(status_code=204)
+
+
+@router.get("/api/conversations/{conversation_id}/stats")
+async def get_conversation_stats_endpoint(
+    conversation_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return await get_conversation_stats(conversation_id)
+
+
+@router.get("/api/stats")
+async def get_stats_endpoint(
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    return await get_user_stats(user_id)

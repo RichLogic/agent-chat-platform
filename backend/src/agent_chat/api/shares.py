@@ -11,8 +11,8 @@ from agent_chat.auth.middleware import get_current_user_id
 from agent_chat.db.repository import (
     create_share,
     delete_share,
-    get_conversation,
     get_share_by_conversation,
+    get_user_conversation,
 )
 
 router = APIRouter()
@@ -29,8 +29,8 @@ async def create_share_endpoint(
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    conversation = await get_conversation(conversation_id)
-    if not conversation or conversation.get("user_id") != user_id:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     existing = await get_share_by_conversation(conversation_id)
@@ -53,8 +53,8 @@ async def delete_share_endpoint(
     conversation_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> Response:
-    conversation = await get_conversation(conversation_id)
-    if not conversation or conversation.get("user_id") != user_id:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     await delete_share(conversation_id, user_id)
@@ -67,8 +67,8 @@ async def get_share_status_endpoint(
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ) -> dict:
-    conversation = await get_conversation(conversation_id)
-    if not conversation or conversation.get("user_id") != user_id:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     existing = await get_share_by_conversation(conversation_id)
