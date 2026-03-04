@@ -49,10 +49,12 @@ def _make_event(event_type: str, data: dict) -> dict:
 
 
 async def _build_tool_dispatch_prompt(prompts: dict) -> dict:
-    """Build system prompt with tool schemas injected."""
+    """Build system prompt with tool schemas and current datetime injected."""
     registry = await get_registry()
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     template = prompts["tool_dispatch"]["content"]
     content = template.replace("{tools_schema}", registry.generate_schema())
+    content = content.replace("{current_datetime}", now)
     return {"role": "system", "content": content}
 
 
