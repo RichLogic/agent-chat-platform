@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     conversation_id: str
     content: str
     file_ids: list[str] | None = None
+    agent_mode: bool = False
 
 
 class ConversationResponse(BaseModel):

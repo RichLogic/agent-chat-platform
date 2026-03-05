@@ -53,8 +53,16 @@ class Settings(BaseSettings):
     mcp_notes_url: str = ""  # empty = disabled, e.g. "http://localhost:8302/mcp"
     notes_root: str = "data/notes"
 
+    # LangGraph Agent
+    langgraph_checkpoint_db: str = ""  # default: <data_dir>/langgraph_checkpoints.sqlite
+    agent_mode_default: bool = False
+
     # Logging
     log_level: str = "INFO"
+
+    def model_post_init(self, __context: object) -> None:
+        if not self.langgraph_checkpoint_db:
+            self.langgraph_checkpoint_db = f"{self.data_dir}/langgraph_checkpoints.sqlite"
 
 
 # Module-level settings singleton (avoids circular imports with main.py)

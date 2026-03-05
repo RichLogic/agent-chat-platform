@@ -10,7 +10,7 @@ from sse_starlette.sse import EventSourceResponse
 from agent_chat.auth.middleware import get_current_user_id
 from agent_chat.config import get_settings
 from agent_chat.schemas.api import ChatRequest
-from agent_chat.services.chat_service import handle_chat_stream
+from agent_chat.services.chat_service import handle_chat_stream_router
 
 router = APIRouter()
 
@@ -23,12 +23,13 @@ async def chat(
     settings = get_settings()
 
     async def event_generator():
-        async for event in handle_chat_stream(
+        async for event in handle_chat_stream_router(
             conversation_id=body.conversation_id,
             user_content=body.content,
             user_id=user_id,
             settings=settings,
             file_ids=body.file_ids,
+            agent_mode=body.agent_mode,
         ):
             yield {
                 "event": event["type"],

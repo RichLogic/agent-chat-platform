@@ -22,6 +22,17 @@ export default function ChatLayout() {
   const [copied, setCopied] = useState(false)
   const sharePopoverRef = useRef<HTMLDivElement>(null)
 
+  // Agent mode toggle — persisted in localStorage
+  const [agentMode, setAgentMode] = useState(() => localStorage.getItem('agent_mode') === 'true')
+
+  function toggleAgentMode() {
+    setAgentMode(prev => {
+      const next = !prev
+      localStorage.setItem('agent_mode', String(next))
+      return next
+    })
+  }
+
   const handleTitleUpdate = useCallback(
     (title: string) => {
       if (activeConvId) {
@@ -105,9 +116,9 @@ export default function ChatLayout() {
     if (!activeConvId) {
       const conv = await createConversation()
       setActiveConvId(conv.id)
-      await sendMessage(conv.id, content, fileIds, files)
+      await sendMessage(conv.id, content, fileIds, files, agentMode)
     } else {
-      await sendMessage(activeConvId, content, fileIds, files)
+      await sendMessage(activeConvId, content, fileIds, files, agentMode)
     }
   }
 
@@ -165,6 +176,35 @@ export default function ChatLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Agent mode toggle */}
+            <button
+              onClick={toggleAgentMode}
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                agentMode
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-text-muted hover:bg-surface-dim'
+              }`}
+              title={agentMode ? 'Agent 模式已开启 (Plan & Execute)' : 'Agent 模式已关闭'}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
+                <path d="M16 14H8a4 4 0 0 0-4 4v2h16v-2a4 4 0 0 0-4-4z" />
+              </svg>
+              Agent
+              {/* Toggle indicator */}
+              <span
+                className={`inline-block h-3 w-6 rounded-full transition-colors ${
+                  agentMode ? 'bg-primary' : 'bg-gray-300'
+                } relative`}
+              >
+                <span
+                  className={`absolute top-0.5 h-2 w-2 rounded-full bg-white transition-transform ${
+                    agentMode ? 'translate-x-3.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+            </button>
+
             {/* Share button */}
             {activeConvId && !isStreaming && (
               <div className="relative" ref={sharePopoverRef}>
