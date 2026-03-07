@@ -21,7 +21,9 @@ export interface ToolCall {
   name: string
   arguments: Record<string, unknown>
   result?: Record<string, unknown>
-  status: 'calling' | 'done'
+  status: 'calling' | 'done' | 'pending_approval'
+  risk_level?: string
+  approval_id?: string
   step_index?: number
 }
 

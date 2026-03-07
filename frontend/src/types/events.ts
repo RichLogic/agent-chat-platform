@@ -1,4 +1,4 @@
-export type SSEEventType = 'run.start' | 'text.delta' | 'run.finish' | 'conversation.title' | 'tool.call' | 'tool.result' | 'messages.sent' | 'provider.fallback' | 'error'
+export type SSEEventType = 'run.start' | 'text.delta' | 'run.finish' | 'conversation.title' | 'tool.call' | 'tool.result' | 'messages.sent' | 'provider.fallback' | 'approval.request' | 'approval.resolved' | 'error'
 
 export interface RunStartData {
   run_id: string
@@ -22,6 +22,7 @@ export interface ConversationTitleData {
 export interface ToolCallData {
   name: string
   arguments: Record<string, unknown>
+  risk_level?: string
   step_index?: number
 }
 
@@ -42,6 +43,19 @@ export interface MessagesSentData {
   messages: Array<{ role: string; content: string }>
 }
 
+export interface ApprovalRequestData {
+  approval_id: string
+  tool_name: string
+  arguments: Record<string, unknown>
+  risk_level: string
+  reason: string
+}
+
+export interface ApprovalResolvedData {
+  approval_id: string
+  status: 'approved' | 'denied' | 'expired'
+}
+
 export interface ErrorData {
   message: string
 }
@@ -49,5 +63,5 @@ export interface ErrorData {
 export interface SSEEvent {
   type: SSEEventType
   ts: string
-  data: RunStartData | TextDeltaData | RunFinishData | ConversationTitleData | ToolCallData | ToolResultData | MessagesSentData | ProviderFallbackData | ErrorData
+  data: RunStartData | TextDeltaData | RunFinishData | ConversationTitleData | ToolCallData | ToolResultData | MessagesSentData | ProviderFallbackData | ApprovalRequestData | ApprovalResolvedData | ErrorData
 }

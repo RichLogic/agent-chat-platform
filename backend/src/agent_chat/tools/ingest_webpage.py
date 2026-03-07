@@ -8,6 +8,11 @@ import httpx
 import structlog
 from bs4 import BeautifulSoup
 
+from agent_chat.security.url_validator import (
+    URLValidationError,
+    is_allowed_content_type,
+    validate_url,
+)
 from agent_chat.services.kb_service import ingest_webpage_to_kb
 from agent_chat.tools.base import Tool
 
@@ -63,6 +68,7 @@ class IngestWebpageTool(Tool):
     name = "ingest_webpage"
     description = "抓取网页内容并保存到知识库，之后可以通过 kb_search 检索。用于保存文章、文档等网页信息。"
     risk_level = "write"
+    requires_confirmation = True
     timeout_seconds = 30.0
     parameters = {
         "type": "object",
@@ -89,12 +95,47 @@ class IngestWebpageTool(Tool):
         url = arguments["url"]
         custom_title = arguments.get("title")
 
+        # --- SSRF validation ---
         try:
-            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            from agent_chat.config import get_settings
+            settings = get_settings()
+            allowlist = settings.url_allowlist or None
+            denylist = settings.url_denylist or None
+            max_redirects = settings.max_redirects
+            max_bytes = settings.max_response_bytes
+        except RuntimeError:
+            allowlist = None
+            denylist = None
+            max_redirects = 5
+            max_bytes = 5 * 1024 * 1024
+
+        try:
+            validate_url(url, allowlist=allowlist, denylist=denylist)
+        except URLValidationError as e:
+            logger.warning("ingest_url_blocked", url=url, reason=str(e))
+            return {"error": f"URL blocked: {e}", "code": "URL_BLOCKED"}
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=20.0,
+                follow_redirects=True,
+                max_redirects=max_redirects,
+            ) as client:
                 resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 AgentChat/1.0"})
                 resp.raise_for_status()
+        except httpx.TooManyRedirects:
+            return {"error": f"Too many redirects (max {max_redirects})", "code": "TOO_MANY_REDIRECTS"}
         except httpx.HTTPError as e:
             return {"error": f"Failed to fetch URL: {e}", "code": "FETCH_ERROR"}
+
+        # Content-type check
+        content_type = resp.headers.get("content-type")
+        if not is_allowed_content_type(content_type):
+            return {"error": f"Blocked content-type: {content_type}", "code": "BLOCKED_CONTENT_TYPE"}
+
+        # Size check
+        if len(resp.content) > max_bytes:
+            return {"error": f"Response too large ({len(resp.content)} bytes)", "code": "RESPONSE_TOO_LARGE"}
 
         html = resp.text
         extracted_title, body_text = _extract_text(html)

@@ -1,0 +1,25 @@
+# Smoke cases — minimal set for CI (runs against mock LLM, no external keys).
+
+- id: smoke_chat_basic
+  category: smoke
+  input: "你好"
+  expected_tool: null
+  assertions:
+    - response_not_empty: true
+    - no_error: true
+
+- id: smoke_chat_longer
+  category: smoke
+  input: "请用一句话介绍你自己"
+  expected_tool: null
+  assertions:
+    - response_not_empty: true
+    - no_error: true
+
+- id: smoke_chat_english
+  category: smoke
+  input: "Hello, how are you?"
+  expected_tool: null
+  assertions:
+    - response_not_empty: true
+    - no_error: true

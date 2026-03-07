@@ -55,7 +55,7 @@ class TestLoadCases:
         from eval.runner import load_cases
 
         cases = load_cases("eval/cases")
-        assert len(cases) >= 50
+        assert len(cases) >= 56
         ids = [c["id"] for c in cases]
         assert len(ids) == len(set(ids)), "Case IDs must be unique"
 
@@ -327,11 +327,12 @@ class TestCaseFilesValidation:
 
         cases = load_cases("eval/cases")
         counts = Counter(c["category"] for c in cases)
-        assert counts["weather"] == 5
+        assert counts["weather"] == 6
         assert counts["news"] == 5
-        assert counts["search"] == 5
+        assert counts["search"] == 6
         assert counts["pdf_rag"] == 10
         assert counts["memory"] == 10
         assert counts["mcp_notes"] == 5
         assert counts["webpage"] == 5
-        assert counts["multi_step"] == 5
+        assert counts["multi_step"] == 6
+        assert counts["smoke"] == 3

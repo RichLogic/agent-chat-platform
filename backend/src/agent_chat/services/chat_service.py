@@ -26,6 +26,8 @@ from agent_chat.db.repository import (
 from agent_chat.llm.factory import create_provider
 from agent_chat.services.title_service import generate_title
 from agent_chat.storage.file_store import write_event
+from agent_chat.security.approval_store import ApprovalStatus, get_approval_store
+from agent_chat.security.policy import Decision, get_policy_engine
 from agent_chat.tools.registry import get_registry
 
 logger = structlog.get_logger()
@@ -228,14 +230,111 @@ async def handle_chat_stream(
                 tool_name = tool_call["tool"]
                 tool_args = tool_call["arguments"]
 
-                # Emit tool.call with step_index
+                # --- PolicyEngine check ---
+                tool_obj = registry.get(tool_name)
+                policy_engine = get_policy_engine()
+                if tool_obj:
+                    policy_result = policy_engine.evaluate(tool_obj, tool_args)
+                    display_args = policy_result.redacted_args or tool_args
+                else:
+                    policy_result = None
+                    display_args = tool_args
+
+                # Emit tool.call with risk_level
                 tool_call_event = _make_event("tool.call", {
                     "name": tool_name,
-                    "arguments": tool_args,
+                    "arguments": display_args,
+                    "risk_level": tool_obj.risk_level if tool_obj else "read",
                     "step_index": step_index,
                 })
                 yield tool_call_event
                 await write_event(settings.data_dir, run_id, tool_call_event)
+
+                # Handle DENY
+                if policy_result and policy_result.decision == Decision.DENY:
+                    tool_result = {
+                        "error": f"Tool denied: {policy_result.reason}",
+                        "code": "POLICY_DENIED",
+                    }
+                    tool_result_event = _make_event("tool.result", {
+                        "name": tool_name,
+                        "result": tool_result,
+                        "step_index": step_index,
+                        "code": "POLICY_DENIED",
+                    })
+                    yield tool_result_event
+                    await write_event(settings.data_dir, run_id, tool_result_event)
+                    messages.append({
+                        "role": "assistant",
+                        "content": json.dumps(tool_call, ensure_ascii=False),
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": f"[Tool Result: {tool_name}]\n{json.dumps(tool_result, ensure_ascii=False)}",
+                    })
+                    continue
+
+                # Handle CONFIRM — wait for user approval
+                if policy_result and policy_result.decision == Decision.CONFIRM:
+                    store = get_approval_store()
+                    approval = store.create(
+                        run_id=run_id,
+                        tool_name=tool_name,
+                        arguments=display_args,
+                        risk_level=tool_obj.risk_level if tool_obj else "write",
+                        reason=policy_result.reason,
+                    )
+                    approval_event = _make_event("approval.request", {
+                        "approval_id": approval.id,
+                        "tool_name": tool_name,
+                        "arguments": display_args,
+                        "risk_level": tool_obj.risk_level if tool_obj else "write",
+                        "reason": policy_result.reason,
+                    })
+                    yield approval_event
+                    await write_event(settings.data_dir, run_id, approval_event)
+
+                    # Wait for user decision (up to 120s)
+                    status = await approval.wait(timeout=120.0)
+
+                    if status != ApprovalStatus.APPROVED:
+                        deny_reason = "expired" if status == ApprovalStatus.EXPIRED else "denied by user"
+                        tool_result = {
+                            "error": f"Tool {deny_reason}: {tool_name}",
+                            "code": "USER_DENIED",
+                        }
+                        resolved_event = _make_event("approval.resolved", {
+                            "approval_id": approval.id,
+                            "status": status.value,
+                        })
+                        yield resolved_event
+                        await write_event(settings.data_dir, run_id, resolved_event)
+
+                        tool_result_event = _make_event("tool.result", {
+                            "name": tool_name,
+                            "result": tool_result,
+                            "step_index": step_index,
+                            "code": "USER_DENIED",
+                        })
+                        yield tool_result_event
+                        await write_event(settings.data_dir, run_id, tool_result_event)
+                        messages.append({
+                            "role": "assistant",
+                            "content": json.dumps(tool_call, ensure_ascii=False),
+                        })
+                        messages.append({
+                            "role": "user",
+                            "content": f"[Tool Result: {tool_name}]\n{json.dumps(tool_result, ensure_ascii=False)}",
+                        })
+                        continue
+
+                    # Approved — emit resolved event and proceed
+                    resolved_event = _make_event("approval.resolved", {
+                        "approval_id": approval.id,
+                        "status": "approved",
+                    })
+                    yield resolved_event
+                    await write_event(settings.data_dir, run_id, resolved_event)
 
                 # Execute tool
                 tool_result = await registry.execute(

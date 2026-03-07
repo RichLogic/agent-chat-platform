@@ -26,6 +26,8 @@ from langgraph.graph import StateGraph
 # from langgraph.types import interrupt  # TODO: re-enable when frontend has confirmation UI
 
 from agent_chat.llm.factory import FallbackProvider
+from agent_chat.security.approval_store import ApprovalStatus, get_approval_store
+from agent_chat.security.policy import Decision, get_policy_engine
 from agent_chat.tools.registry import ToolRegistry
 
 logger = structlog.get_logger()
@@ -233,19 +235,8 @@ async def executor_node(state: AgentState, config: RunnableConfig) -> dict:
     if not tool_calls:
         return {"tool_results": []}
 
-    # --- Log dangerous operations (auto-approved for now) ---
-    # TODO: Add frontend confirmation UI, then re-enable interrupt() here.
-    dangerous = [tc for tc in tool_calls if tc.get("risk_level") not in ("read", None)]
-    if dangerous:
-        writer(_make_event("agent.confirm_auto", {
-            "message": "以下写操作已自动批准执行：",
-            "tools": [
-                {"name": tc["name"], "arguments": tc["arguments"], "risk_level": tc["risk_level"]}
-                for tc in dangerous
-            ],
-        }))
-        logger.info("dangerous_tools_auto_approved",
-                     tools=[tc["name"] for tc in dangerous])
+    policy_engine = get_policy_engine()
+    run_id: str = config["configurable"].get("run_id", "")
 
     # --- Group by parallel_group and execute concurrently ---
     groups: dict[int, list[dict]] = {}
@@ -267,17 +258,73 @@ async def executor_node(state: AgentState, config: RunnableConfig) -> dict:
             )
 
         async def _execute_one(tc: dict, idx: int) -> dict:
-            """Execute a single tool call with error handling."""
+            """Execute a single tool call with PolicyEngine check."""
             name = tc["name"]
             args = tc["arguments"]
+
+            # --- PolicyEngine check ---
+            tool_obj = registry.get(name)
+            if tool_obj:
+                policy_result = policy_engine.evaluate(tool_obj, args)
+                display_args = policy_result.redacted_args or args
+            else:
+                policy_result = None
+                display_args = args
 
             # Emit tool.call event
             writer(_make_event("tool.call", {
                 "name": name,
-                "arguments": args,
+                "arguments": display_args,
                 "risk_level": tc.get("risk_level", "read"),
                 "step_index": idx,
             }))
+
+            # Handle DENY
+            if policy_result and policy_result.decision == Decision.DENY:
+                entry = {"name": name, "ok": False,
+                         "result": {"error": f"Tool denied: {policy_result.reason}", "code": "POLICY_DENIED"}}
+                writer(_make_event("tool.result", {
+                    "name": name, "result": entry["result"],
+                    "step_index": idx, "code": "POLICY_DENIED",
+                }))
+                return entry
+
+            # Handle CONFIRM — wait for user approval
+            if policy_result and policy_result.decision == Decision.CONFIRM:
+                store = get_approval_store()
+                approval = store.create(
+                    run_id=run_id,
+                    tool_name=name,
+                    arguments=display_args,
+                    risk_level=tc.get("risk_level", "write"),
+                    reason=policy_result.reason,
+                )
+                writer(_make_event("approval.request", {
+                    "approval_id": approval.id,
+                    "tool_name": name,
+                    "arguments": display_args,
+                    "risk_level": tc.get("risk_level", "write"),
+                    "reason": policy_result.reason,
+                }))
+
+                status = await approval.wait(timeout=120.0)
+
+                if status != ApprovalStatus.APPROVED:
+                    deny_reason = "expired" if status == ApprovalStatus.EXPIRED else "denied by user"
+                    entry = {"name": name, "ok": False,
+                             "result": {"error": f"Tool {deny_reason}: {name}", "code": "USER_DENIED"}}
+                    writer(_make_event("approval.resolved", {
+                        "approval_id": approval.id, "status": status.value,
+                    }))
+                    writer(_make_event("tool.result", {
+                        "name": name, "result": entry["result"],
+                        "step_index": idx, "code": "USER_DENIED",
+                    }))
+                    return entry
+
+                writer(_make_event("approval.resolved", {
+                    "approval_id": approval.id, "status": "approved",
+                }))
 
             try:
                 result = await asyncio.wait_for(

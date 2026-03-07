@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     langgraph_checkpoint_db: str = ""  # default: <data_dir>/langgraph_checkpoints.sqlite
     agent_mode_default: bool = False
 
+    # Security — URL fetch
+    url_allowlist: list[str] = []   # empty = allow all public URLs
+    url_denylist: list[str] = []    # explicit domain blocks
+    max_redirects: int = 5
+    max_response_bytes: int = 5 * 1024 * 1024  # 5 MB
+
     # Logging
     log_level: str = "INFO"
 

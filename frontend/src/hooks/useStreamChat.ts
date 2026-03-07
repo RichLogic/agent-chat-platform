@@ -7,7 +7,7 @@ import type {
   MessageListResponse,
   ToolCall,
 } from '../types/api'
-import type { SSEEvent, ToolCallData, ToolResultData } from '../types/events'
+import type { ApprovalRequestData, ApprovalResolvedData, SSEEvent, ToolCallData, ToolResultData } from '../types/events'
 
 export function useStreamChat() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -24,6 +24,8 @@ export function useStreamChat() {
   const toolCallsMapRef = useRef<Map<string, ToolCall[]>>(new Map())
   // Track assistant content per message
   const contentMapRef = useRef<Map<string, string>>(new Map())
+  // Pending approval callback
+  const onApprovalRequest = useRef<((data: ApprovalRequestData) => void) | null>(null)
 
   function getCache(convId: string): ConversationCacheEntry {
     let entry = cacheRef.current.get(convId)
@@ -55,7 +57,7 @@ export function useStreamChat() {
       const existing = toolCallsMapRef.current.get(assistantId) ?? []
       const updated = [
         ...existing,
-        { name: data.name, arguments: data.arguments, status: 'calling' as const, step_index: data.step_index },
+        { name: data.name, arguments: data.arguments, risk_level: data.risk_level, status: 'calling' as const, step_index: data.step_index },
       ]
       toolCallsMapRef.current.set(assistantId, updated)
       cache.messages = cache.messages.map(m =>
@@ -95,6 +97,34 @@ export function useStreamChat() {
     } else if (event.type === 'conversation.title') {
       const data = event.data as { title: string }
       onTitleUpdate.current?.(data.title)
+    } else if (event.type === 'approval.request') {
+      const data = event.data as ApprovalRequestData
+      // Mark the tool call as pending_approval
+      const existing = toolCallsMapRef.current.get(assistantId) ?? []
+      const updated = existing.map(tc =>
+        tc.name === data.tool_name && tc.status === 'calling'
+          ? { ...tc, status: 'pending_approval' as const, approval_id: data.approval_id }
+          : tc,
+      )
+      toolCallsMapRef.current.set(assistantId, updated)
+      cache.messages = cache.messages.map(m =>
+        m.id === assistantId ? { ...m, toolCalls: [...updated] } : m,
+      )
+      // Notify the UI to show the confirmation modal
+      onApprovalRequest.current?.(data)
+    } else if (event.type === 'approval.resolved') {
+      const data = event.data as ApprovalResolvedData
+      // Update tool call status based on resolution
+      const existing = toolCallsMapRef.current.get(assistantId) ?? []
+      const updated = existing.map(tc =>
+        tc.approval_id === data.approval_id
+          ? { ...tc, status: (data.status === 'approved' ? 'calling' : 'done') as 'calling' | 'done' }
+          : tc,
+      )
+      toolCallsMapRef.current.set(assistantId, updated)
+      cache.messages = cache.messages.map(m =>
+        m.id === assistantId ? { ...m, toolCalls: [...updated] } : m,
+      )
     } else if (event.type === 'error') {
       const data = event.data as { message: string }
       cache.messages = cache.messages.map(m =>
@@ -394,6 +424,7 @@ export function useStreamChat() {
     switchConversation,
     clearConversation,
     onTitleUpdate,
+    onApprovalRequest,
     stopStreaming,
   }
 }

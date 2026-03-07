@@ -6,15 +6,18 @@ import { useShare } from '../../hooks/useShare'
 import Sidebar from './Sidebar'
 import ChatArea from '../chat/ChatArea'
 import ChatInput from '../chat/ChatInput'
+import ConfirmationModal from '../chat/ConfirmationModal'
 import TraceView from '../replay/TraceView'
 import { compressConversation } from '../../lib/api'
 import type { FileInfo } from '../../types/api'
+import type { ApprovalRequestData } from '../../types/events'
 
 export default function ChatLayout() {
   const { user, logout } = useAuth()
   const { conversations, createConversation, deleteConversation, updateTitle } = useConversations()
-  const { messages, isStreaming, sendMessage, switchConversation, clearConversation, onTitleUpdate, stopStreaming } = useStreamChat()
+  const { messages, isStreaming, sendMessage, switchConversation, clearConversation, onTitleUpdate, onApprovalRequest, stopStreaming } = useStreamChat()
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRequestData | null>(null)
   const [traceRunId, setTraceRunId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { shareInfo, loading: shareLoading, share, reset: resetShare } = useShare()
@@ -45,6 +48,10 @@ export default function ChatLayout() {
   useEffect(() => {
     onTitleUpdate.current = handleTitleUpdate
   }, [handleTitleUpdate, onTitleUpdate])
+
+  useEffect(() => {
+    onApprovalRequest.current = (data: ApprovalRequestData) => setPendingApproval(data)
+  }, [onApprovalRequest])
 
   // Close share popover on outside click
   useEffect(() => {
@@ -292,6 +299,12 @@ export default function ChatLayout() {
         {/* Input */}
         <ChatInput onSend={handleSend} disabled={isStreaming} />
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        approval={pendingApproval}
+        onResolve={() => setPendingApproval(null)}
+      />
     </div>
   )
 }

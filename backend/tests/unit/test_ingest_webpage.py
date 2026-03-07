@@ -128,6 +128,8 @@ class TestIngestWebpageTool:
 
         mock_response = AsyncMock()
         mock_response.text = html
+        mock_response.content = html.encode()
+        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
         mock_response.raise_for_status = lambda: None
 
         mock_client = AsyncMock()
@@ -137,6 +139,7 @@ class TestIngestWebpageTool:
 
         tool = IngestWebpageTool()
         with (
+            patch("agent_chat.tools.ingest_webpage.validate_url", return_value="https://example.com/article"),
             patch("agent_chat.tools.ingest_webpage.httpx.AsyncClient", return_value=mock_client),
             patch("agent_chat.tools.ingest_webpage.ingest_webpage_to_kb", new_callable=AsyncMock, return_value=1) as mock_ingest,
         ):
@@ -156,6 +159,8 @@ class TestIngestWebpageTool:
 
         mock_response = AsyncMock()
         mock_response.text = html
+        mock_response.content = html.encode()
+        mock_response.headers = {"content-type": "text/html"}
         mock_response.raise_for_status = lambda: None
 
         mock_client = AsyncMock()
@@ -165,6 +170,7 @@ class TestIngestWebpageTool:
 
         tool = IngestWebpageTool()
         with (
+            patch("agent_chat.tools.ingest_webpage.validate_url", return_value="https://example.com"),
             patch("agent_chat.tools.ingest_webpage.httpx.AsyncClient", return_value=mock_client),
             patch("agent_chat.tools.ingest_webpage.ingest_webpage_to_kb", new_callable=AsyncMock, return_value=1),
         ):
@@ -181,6 +187,8 @@ class TestIngestWebpageTool:
 
         mock_response = AsyncMock()
         mock_response.text = html
+        mock_response.content = html.encode()
+        mock_response.headers = {"content-type": "text/html"}
         mock_response.raise_for_status = lambda: None
 
         mock_client = AsyncMock()
@@ -189,7 +197,10 @@ class TestIngestWebpageTool:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         tool = IngestWebpageTool()
-        with patch("agent_chat.tools.ingest_webpage.httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("agent_chat.tools.ingest_webpage.validate_url", return_value="https://example.com"),
+            patch("agent_chat.tools.ingest_webpage.httpx.AsyncClient", return_value=mock_client),
+        ):
             result = await tool.execute(
                 {"url": "https://example.com"},
                 context={"user_id": "user123"},

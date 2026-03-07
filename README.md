@@ -2,6 +2,9 @@
 
 全栈 **AI Agent 对话平台**——支持 LangGraph 多步规划执行、并发工具调用、MCP 集成、PDF 知识库（RAG）、长期记忆、多会话并行流式传输与对话分享回放，体验对标 ChatGPT / Claude，可完全自托管与自由扩展。
 
+![Agent Chat Platform Demo](profile1.gif)
+![Agent Chat Platform Demo2](profile2.gif)
+
 ---
 
 ## 功能清单
@@ -28,7 +31,7 @@
 | **分享** | 对话分享 | 生成公开分享链接，无需登录即可查看 |
 | **分享** | Trace 回放 | 可视化回放完整执行过程：规划、工具调用、耗时、LLM 响应 |
 | **认证** | GitHub OAuth + JWT | 基于 GitHub 登录与 JWT 令牌的安全认证 |
-| **评估** | 自动化评估 | 内置评估框架，8 类 YAML 测试用例 + 规则断言 + HTML 报告 |
+| **评估** | 自动化评估 | YAML 用例 + Rule Scorer（must_contain / must_call_tools / max_time_ms 等） + Live SSE Runner + HTML 报告 |
 
 ---
 
@@ -232,9 +235,15 @@ agent-chat-platform/
 │   │   └── main.py          # 应用入口
 │   └── eval/                # 评估框架
 │       ├── cases/           # YAML 测试用例
-│       ├── runner.py        # 测试运行器
-│       ├── judge.py         # 规则断言
-│       └── report.py        # 报告生成
+│       ├── scorers/         # 评分器
+│       │   └── rule_scorer.py  # Rule-based 评分（含扩展规则）
+│       ├── runner.py        # 模拟运行器
+│       ├── live_runner.py   # Live SSE 端到端运行器
+│       ├── smoke_runner.py  # CI Smoke / Nightly 入口
+│       ├── compare.py       # Baseline diff + 阈值门禁
+│       ├── judge.py         # 基础断言
+│       ├── report.py        # Markdown / JSON 报告
+│       └── report_html.py   # HTML 报告（含时延统计）
 ├── frontend/
 │   └── src/
 │       ├── components/      # React 组件
@@ -247,6 +256,69 @@ agent-chat-platform/
 │       ├── pages/           # 页面组件
 │       └── types/           # TypeScript 类型
 └── docker-compose.yml
+```
+
+---
+
+## 评估框架
+
+### YAML Case 扩展字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `must_contain` | `list[str]` | 回答必须包含的子串 |
+| `must_not_contain` | `list[str]` | 回答不能包含的子串 |
+| `must_call_tools` | `list[str]` | 必须调用的工具名称 |
+| `max_time_ms` | `int` | 总耗时上限（毫秒） |
+| `max_tool_calls` | `int` | 工具调用次数上限 |
+
+所有字段均可选，旧用例无需修改即可继续运行。
+
+### 运行方式
+
+```bash
+cd backend
+
+# 1. CI Smoke（mock LLM，无需外部 key，make target）
+make eval-smoke
+
+# 2. Live 端到端运行（需要后端已启动 + JWT token）
+uv run python -m eval.live_runner \
+  --base-url http://localhost:8301 \
+  --token <your-jwt-token> \
+  --cases eval/cases \
+  --artifacts eval/artifacts \
+  --concurrency 4
+
+# 3. Agent 模式 Live 运行
+uv run python -m eval.live_runner \
+  --base-url http://localhost:8301 \
+  --token <your-jwt-token> \
+  --agent-mode \
+  --concurrency 2
+
+# 4. Nightly Live（读取环境变量 AC_EVAL_TOKEN，无 token 自动跳过）
+make eval-nightly    # 或: AC_EVAL_TOKEN=xxx AC_EVAL_BASE_URL=http://... make eval-nightly
+
+# 5. Baseline 对比 + 回归门禁
+make eval-compare BASELINE=eval/artifacts-baseline/report.json CURRENT=eval/artifacts/report.json
+# 可设置阈值：--max-pass-rate-drop 0.05 --max-p90-increase-ms 500
+
+# 6. 运行评估测试
+make test
+```
+
+产出目录结构：
+
+```
+eval/artifacts/
+├── report.html               # HTML 报告（pass rate、时延统计、失败详情）
+├── report.json               # JSON 报告
+├── summary.json              # 汇总数据
+├── weather_001/
+│   ├── events.jsonl           # 原始 SSE 事件
+│   └── result.json            # 评分结果
+└── ...
 ```
 
 ---

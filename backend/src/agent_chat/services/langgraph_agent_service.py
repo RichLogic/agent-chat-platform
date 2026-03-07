@@ -182,6 +182,7 @@ async def handle_chat_stream_langgraph(
                 "provider": provider,
                 "registry": registry,
                 "user_id": user_id,
+                "run_id": run_id,
             }
         }
 

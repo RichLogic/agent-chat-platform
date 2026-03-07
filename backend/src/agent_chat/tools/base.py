@@ -10,9 +10,14 @@ class Tool(ABC):
     name: str
     description: str
     parameters: dict[str, Any]
-    risk_level: Literal["read", "write", "admin"] = "read"
+    risk_level: Literal["read", "write", "destructive", "admin"] = "read"
     timeout_seconds: float = 30.0
     max_retries: int = 0
+
+    # Security metadata
+    requires_confirmation: bool = False
+    required_scopes: set[str] = set()
+    arg_redaction: list[str] = []
 
     @abstractmethod
     async def execute(

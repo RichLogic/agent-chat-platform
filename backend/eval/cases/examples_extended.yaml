@@ -1,0 +1,47 @@
+# Extended case examples demonstrating new rule fields.
+# All new fields are optional — old cases remain valid.
+
+- id: ext_weather_contain
+  category: weather
+  input: "北京今天天气怎么样"
+  expected_tool: weather
+  must_call_tools:
+    - weather
+  must_contain:
+    - "北京"
+  must_not_contain:
+    - "ERROR"
+  max_time_ms: 30000
+  assertions:
+    - response_not_empty: true
+    - no_error: true
+
+- id: ext_search_tools
+  category: search
+  input: "搜索一下最新的人工智能发展趋势"
+  expected_tool: search
+  must_call_tools:
+    - search
+  max_tool_calls: 5
+  max_time_ms: 60000
+  assertions:
+    - tool_called: search
+    - response_not_empty: true
+    - no_error: true
+
+- id: ext_multi_step_strict
+  category: multi_step
+  input: "查一下东京天气，再搜索东京旅游攻略"
+  expected_tool: weather
+  must_call_tools:
+    - weather
+    - search
+  must_contain:
+    - "东京"
+  must_not_contain:
+    - "无法"
+  max_tool_calls: 6
+  max_time_ms: 90000
+  assertions:
+    - response_not_empty: true
+    - no_error: true
