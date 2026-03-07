@@ -52,12 +52,12 @@ function ConversationItem({
 
   return (
     <div
-      className={`group relative mb-0.5 flex cursor-pointer items-center rounded-lg px-3 py-2.5 text-sm transition-all duration-300 ${
+      className={`group relative flex cursor-pointer items-center rounded-lg px-3 text-sm transition-all duration-300 ${
         removing
-          ? '-translate-x-full opacity-0'
-          : isActive
+          ? '-translate-x-full opacity-0 h-0 py-0 mb-0 overflow-hidden'
+          : 'mb-0.5 py-2.5 ' + (isActive
             ? 'bg-white/15 text-white'
-            : 'text-white/70 hover:bg-white/10 hover:text-white'
+            : 'text-white/70 hover:bg-white/10 hover:text-white')
       }`}
       onClick={onSelect}
       onTransitionEnd={() => {

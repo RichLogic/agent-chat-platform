@@ -13,7 +13,7 @@ import type { FileInfo } from '../../types/api'
 export default function ChatLayout() {
   const { user, logout } = useAuth()
   const { conversations, createConversation, deleteConversation, updateTitle } = useConversations()
-  const { messages, isStreaming, sendMessage, loadMessages, setMessages, onTitleUpdate, stopStreaming } = useStreamChat()
+  const { messages, isStreaming, sendMessage, switchConversation, clearConversation, onTitleUpdate, stopStreaming } = useStreamChat()
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [traceRunId, setTraceRunId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -89,13 +89,13 @@ export default function ChatLayout() {
     setTraceRunId(null)
     setShowSharePopover(false)
     resetShare()
-    await loadMessages(id)
+    await switchConversation(id)
   }
 
   async function handleNewChat() {
     const conv = await createConversation()
     setActiveConvId(conv.id)
-    setMessages([])
+    clearConversation(conv.id)
     setTraceRunId(null)
     setShowSharePopover(false)
     resetShare()
@@ -105,7 +105,7 @@ export default function ChatLayout() {
     await deleteConversation(id)
     if (activeConvId === id) {
       setActiveConvId(null)
-      setMessages([])
+      clearConversation(id)
       setTraceRunId(null)
       setShowSharePopover(false)
       resetShare()
@@ -193,13 +193,13 @@ export default function ChatLayout() {
               Agent
               {/* Toggle indicator */}
               <span
-                className={`inline-block h-3 w-6 rounded-full transition-colors ${
+                className={`relative inline-block h-4 w-8 rounded-full transition-colors ${
                   agentMode ? 'bg-primary' : 'bg-gray-300'
-                } relative`}
+                }`}
               >
                 <span
-                  className={`absolute top-0.5 h-2 w-2 rounded-full bg-white transition-transform ${
-                    agentMode ? 'translate-x-3.5' : 'translate-x-0.5'
+                  className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                    agentMode ? 'translate-x-4' : 'translate-x-0'
                   }`}
                 />
               </span>

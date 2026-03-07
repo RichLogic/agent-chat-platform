@@ -50,6 +50,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     db = await connect_db(settings.mongo_uri, settings.mongo_db)
     await create_indexes(db)
 
+    # Clean up zombie runs left by previous crashes/restarts
+    from agent_chat.db.repository import cleanup_zombie_runs
+    zombies = await cleanup_zombie_runs()
+    if zombies:
+        logger.warning("zombie_runs_cleaned", count=zombies)
+
     yield
 
     # Cleanup

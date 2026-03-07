@@ -39,7 +39,7 @@ export default function MessageBubble({ message, isStreaming, onViewTrace, expan
       </div>
 
       {/* Content */}
-      <div className={`max-w-[75%] ${isUser ? 'text-right' : ''}`}>
+      <div className="max-w-[75%]">
         {/* File attachments */}
         {message.files && message.files.length > 0 && (
           <FileAttachment files={message.files} />

@@ -14,6 +14,10 @@ const TOOL_LABELS: Record<string, string> = {
   search_memory: 'Memory',
   kb_search: 'KB Search',
   ingest_webpage: 'Save Page',
+  web_fetch: 'Web Fetch',
+  query_notes: 'Notes Query',
+  edit_notes: 'Notes Edit',
+  delete_note: 'Delete Note',
   create_markdown_note: 'Create Note',
   list_notes: 'List Notes',
   read_note: 'Read Note',
@@ -123,22 +127,44 @@ function WeatherResult({ result }: { result: Record<string, unknown> }) {
     return <span className="text-red-600">{String(result.error)}</span>
   }
 
+  const current = (result.current || {}) as Record<string, unknown>
   const units = (result.units || {}) as Record<string, string>
+  const forecast = (result.forecast || []) as Array<{
+    date: string
+    temp_max: number | null
+    temp_min: number | null
+    weather: string
+    wind_speed_max: number | null
+  }>
 
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-text-muted">
-      <span>Location</span>
-      <span className="text-text">{String(result.city)}, {String(result.country)}</span>
-      <span>Weather</span>
-      <span className="text-text">{String(result.weather)}</span>
-      <span>Temperature</span>
-      <span className="text-text">{String(result.temperature)}{units.temperature}</span>
-      <span>Feels like</span>
-      <span className="text-text">{String(result.apparent_temperature)}{units.temperature}</span>
-      <span>Humidity</span>
-      <span className="text-text">{String(result.humidity)}{units.humidity}</span>
-      <span>Wind</span>
-      <span className="text-text">{String(result.wind_speed)} {units.wind_speed}</span>
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-text-muted">
+        <span>Location</span>
+        <span className="text-text">{String(result.city)}, {String(result.country)}</span>
+        <span>Weather</span>
+        <span className="text-text">{String(current.weather)}</span>
+        <span>Temperature</span>
+        <span className="text-text">{String(current.temperature)}{units.temperature}</span>
+        <span>Feels like</span>
+        <span className="text-text">{String(current.apparent_temperature)}{units.temperature}</span>
+        <span>Humidity</span>
+        <span className="text-text">{String(current.humidity)}{units.humidity}</span>
+        <span>Wind</span>
+        <span className="text-text">{String(current.wind_speed)} {units.wind_speed}</span>
+      </div>
+      {forecast.length > 0 && (
+        <div className="border-t border-border pt-1.5">
+          <span className="text-text-muted text-[10px] uppercase">Forecast</span>
+          {forecast.map((day, i) => (
+            <div key={i} className="mt-1 grid grid-cols-3 gap-x-3 text-text-muted">
+              <span className="text-text">{day.date}</span>
+              <span>{day.weather}</span>
+              <span>{day.temp_min ?? '?'}~{day.temp_max ?? '?'}{units.temperature}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

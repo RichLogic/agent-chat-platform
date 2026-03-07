@@ -23,6 +23,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from pathlib import Path
 
+import aiosqlite
 import structlog
 
 from agent_chat.config import Settings
@@ -61,7 +62,8 @@ async def _get_checkpointer(settings: Settings):
     # Ensure parent directory exists
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    _checkpointer = AsyncSqliteSaver.from_conn_string(db_path)
+    conn = await aiosqlite.connect(db_path)
+    _checkpointer = AsyncSqliteSaver(conn)
     await _checkpointer.setup()
     logger.info("langgraph_checkpointer_ready", db=db_path)
     return _checkpointer
@@ -281,3 +283,10 @@ async def handle_chat_stream_langgraph(
         yield error_event
         await write_event(settings.data_dir, run_id, error_event)
         await fail_run(run_id)
+    except BaseException:
+        # CancelledError / GeneratorExit — client disconnected or server
+        # is shutting down.  Mark the run as failed so it doesn't become
+        # a zombie.
+        logger.warning("langgraph_stream_cancelled", run_id=run_id)
+        await fail_run(run_id)
+        raise

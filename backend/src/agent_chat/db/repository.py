@@ -239,6 +239,34 @@ async def get_run(run_id: str) -> dict | None:
     return doc
 
 
+async def get_active_run_for_conversation(conversation_id: str) -> dict | None:
+    """Get the most recent running run for a conversation."""
+    db = get_db()
+    doc = await db.runs.find_one(
+        {"conversation_id": conversation_id, "status": "running"},
+        sort=[("created_at", -1)],
+    )
+    if doc is None:
+        return None
+    doc["id"] = doc.pop("_id")
+    return doc
+
+
+async def cleanup_zombie_runs() -> int:
+    """Mark any runs stuck in 'running' as 'failed'.
+
+    Called at startup to clean up runs orphaned by previous crashes/restarts.
+    """
+    from datetime import datetime, timezone
+
+    db = get_db()
+    result = await db.runs.update_many(
+        {"status": "running"},
+        {"$set": {"status": "failed", "finished_at": datetime.now(timezone.utc)}},
+    )
+    return result.modified_count
+
+
 async def count_messages(conversation_id: str) -> int:
     """Count messages in a conversation."""
     db = get_db()

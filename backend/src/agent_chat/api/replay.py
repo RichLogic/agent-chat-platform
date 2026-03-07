@@ -37,6 +37,37 @@ async def replay_run_events(
     return EventSourceResponse(event_generator())
 
 
+@router.get("/api/runs/{run_id}/poll")
+async def poll_run_events(
+    run_id: str,
+    offset: int = 0,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return events after offset and current run status (JSON, not SSE)."""
+    run = await get_run(run_id)
+    if not run or run.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    settings = get_settings()
+
+    events: list[dict] = []
+    idx = 0
+    async for event in read_events(settings.data_dir, run_id):
+        if idx >= offset:
+            events.append(event)
+        idx += 1
+
+    # Re-read run status after iterating events to catch completion
+    run = await get_run(run_id)
+    run_status = run["status"] if run else "failed"
+
+    return {
+        "events": events,
+        "next_offset": idx,
+        "run_status": run_status,
+    }
+
+
 @router.get("/api/conversations/{conversation_id}/messages")
 async def list_conversation_messages(
     conversation_id: str,

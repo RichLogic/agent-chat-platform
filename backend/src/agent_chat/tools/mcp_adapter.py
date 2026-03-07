@@ -14,7 +14,6 @@ logger = structlog.get_logger()
 class McpTool(Tool):
     """A Tool backed by a remote MCP server."""
 
-    risk_level = "write"
     timeout_seconds = 15.0
 
     def __init__(
@@ -23,11 +22,13 @@ class McpTool(Tool):
         description: str,
         parameters: dict,
         mcp_url: str,
+        risk_level: str = "write",
     ) -> None:
         self.name = name
         self.description = description
         self.parameters = parameters
         self._mcp_url = mcp_url
+        self.risk_level = risk_level
 
     async def execute(
         self, arguments: dict[str, Any], context: dict[str, Any] | None = None
@@ -68,14 +69,24 @@ async def discover_and_register_mcp_tools(
 
             count = 0
             for t in tools_result.tools:
+                # Map MCP annotations to risk_level
+                annotations = getattr(t, "annotations", None)
+                if annotations and getattr(annotations, "readOnlyHint", False):
+                    risk = "read"
+                elif annotations and getattr(annotations, "destructiveHint", False):
+                    risk = "destructive"
+                else:
+                    risk = "write"
+
                 tool = McpTool(
                     name=t.name,
                     description=t.description or "",
                     parameters=t.inputSchema,
                     mcp_url=mcp_url,
+                    risk_level=risk,
                 )
                 registry.register(tool)
                 count += 1
-                logger.info("mcp_tool_registered", name=t.name)
+                logger.info("mcp_tool_registered", name=t.name, risk_level=risk)
 
             return count

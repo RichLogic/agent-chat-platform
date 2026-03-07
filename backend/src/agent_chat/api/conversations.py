@@ -9,6 +9,7 @@ from agent_chat.auth.middleware import get_current_user_id
 from agent_chat.db.repository import (
     cascade_delete_conversation,
     create_conversation,
+    get_active_run_for_conversation,
     get_conversation_stats,
     get_user_conversation,
     get_user_stats,
@@ -55,6 +56,18 @@ async def get_conversation_stats_endpoint(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return await get_conversation_stats(conversation_id)
+
+
+@router.get("/api/conversations/{conversation_id}/active-run")
+async def get_active_run_endpoint(
+    conversation_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    conversation = await get_user_conversation(conversation_id, user_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    run = await get_active_run_for_conversation(conversation_id)
+    return {"active_run": run}
 
 
 @router.get("/api/stats")

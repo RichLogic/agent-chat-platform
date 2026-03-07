@@ -1,6 +1,8 @@
 import { API_BASE } from './constants'
 import type {
+  ActiveRunResponse,
   CreateShareResponse,
+  PollRunResponse,
   ShareResponse,
   SharedConversation,
   SharedEventsResponse,
@@ -45,6 +47,18 @@ export async function uploadFile(file: File): Promise<UploadFileResponse> {
   }
 
   return response.json() as Promise<UploadFileResponse>
+}
+
+// ---------------------------------------------------------------------------
+// Streaming recovery APIs
+// ---------------------------------------------------------------------------
+
+export function getActiveRun(conversationId: string): Promise<ActiveRunResponse> {
+  return request<ActiveRunResponse>(`/conversations/${conversationId}/active-run`)
+}
+
+export function pollRunEvents(runId: string, offset: number): Promise<PollRunResponse> {
+  return request<PollRunResponse>(`/runs/${runId}/poll?offset=${offset}`)
 }
 
 // ---------------------------------------------------------------------------

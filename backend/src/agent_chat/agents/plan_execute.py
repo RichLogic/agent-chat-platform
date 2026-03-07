@@ -15,18 +15,31 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, TypedDict
 
 import structlog
+from langchain_core.runnables import RunnableConfig
 from langgraph.config import get_stream_writer
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
-from langgraph.types import interrupt
+# from langgraph.types import interrupt  # TODO: re-enable when frontend has confirmation UI
 
 from agent_chat.llm.factory import FallbackProvider
 from agent_chat.tools.registry import ToolRegistry
 
 logger = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Load prompts from system.json
+# ---------------------------------------------------------------------------
+_prompts_path = Path(__file__).resolve().parent.parent / "prompts" / "system.json"
+with open(_prompts_path, encoding="utf-8") as f:
+    _prompts = json.load(f)
+
+PLANNER_PROMPT = _prompts["agent_planner"]["content"]
+RESOLVE_ARGS_PROMPT = _prompts["agent_resolve_args"]["content"]
+SYNTHESIZER_PROMPT = _prompts["agent_synthesizer"]["content"]
 
 # ---------------------------------------------------------------------------
 # State
@@ -51,35 +64,6 @@ def _make_event(event_type: str, data: dict) -> dict:
         "ts": datetime.now(timezone.utc).isoformat(),
         "data": data,
     }
-
-
-PLANNER_PROMPT = """\
-你是一个任务规划器。根据用户的问题和可用工具，生成一个执行计划。
-
-当前时间：{current_datetime}
-
-可用工具：
-{tools_schema}
-
-请输出 **仅** 一个 JSON 对象（不要输出其他文字），格式如下：
-{{
-  "thought": "你的分析思路",
-  "tool_calls": [
-    {{
-      "name": "工具名称",
-      "arguments": {{"参数名": "参数值"}},
-      "parallel_group": 0,
-      "reason": "为什么需要调用这个工具"
-    }}
-  ]
-}}
-
-规则：
-1. parallel_group 相同的工具会被并发执行。如果两个工具之间没有依赖关系，应该放在同一个 parallel_group。
-2. 如果不需要调用任何工具，返回 {{"thought": "...", "tool_calls": []}}
-3. 最多安排 5 个工具调用。
-4. 只使用上面列出的工具。
-"""
 
 
 def _build_planner_messages(
@@ -124,7 +108,7 @@ def _parse_plan(text: str) -> dict:
 # Nodes
 # ---------------------------------------------------------------------------
 
-async def planner_node(state: AgentState, config: dict) -> dict:
+async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
     """Call LLM to generate a structured execution plan."""
     writer = get_stream_writer()
     provider: FallbackProvider = config["configurable"]["provider"]
@@ -142,6 +126,13 @@ async def planner_node(state: AgentState, config: dict) -> dict:
     }))
 
     response = await provider.chat(planner_messages)
+
+    # Emit raw LLM response for debugging
+    writer(_make_event("messages.received", {
+        "call_index": 0,
+        "raw_content": response.content,
+    }))
+
     plan = _parse_plan(response.content)
     raw_calls = plan.get("tool_calls", [])
 
@@ -157,11 +148,82 @@ async def planner_node(state: AgentState, config: dict) -> dict:
             "risk_level": risk,
         })
 
+    # Emit agent.plan event so the trace shows the plan
+    writer(_make_event("agent.plan", {
+        "thought": plan.get("thought", ""),
+        "tool_calls": tool_calls,
+        "raw_plan": plan,
+    }))
+
     logger.info("planner_done", thought=plan.get("thought", ""), n_tools=len(tool_calls))
     return {"plan": plan, "tool_calls": tool_calls}
 
 
-async def executor_node(state: AgentState, config: dict) -> dict:
+async def _resolve_dependent_args(
+    group: list[dict],
+    prev_results: list[dict],
+    user_content: str,
+    provider: FallbackProvider,
+    writer,
+) -> list[dict]:
+    """Use LLM to fill in actual arguments for tools that depend on previous results."""
+    # Summarize previous results
+    result_parts = []
+    for r in prev_results:
+        status = "成功" if r.get("ok") else "失败"
+        result_parts.append(
+            f"[工具: {r['name']}] (状态: {status})\n"
+            f"{json.dumps(r['result'], ensure_ascii=False, indent=2)}"
+        )
+    prev_summary = "\n\n---\n\n".join(result_parts)
+
+    resolved = []
+    for tc in group:
+        prompt = RESOLVE_ARGS_PROMPT.format(
+            user_content=user_content,
+            prev_results=prev_summary,
+            tool_name=tc["name"],
+            original_args=json.dumps(tc["arguments"], ensure_ascii=False),
+        )
+        try:
+            response = await provider.chat([
+                {"role": "system", "content": prompt},
+            ])
+
+            writer(_make_event("messages.received", {
+                "call_index": -1,
+                "stage": "resolve_args",
+                "tool_name": tc["name"],
+                "raw_content": response.content,
+            }))
+
+            raw = response.content.strip()
+            # Strip markdown code fences: ```json ... ```
+            if "```" in raw:
+                for block in raw.split("```"):
+                    block = block.strip()
+                    if block.startswith("json"):
+                        block = block[4:].strip()
+                    if block.startswith("{"):
+                        try:
+                            new_args = json.loads(block)
+                            break
+                        except json.JSONDecodeError:
+                            continue
+                else:
+                    new_args = json.loads(raw)
+            else:
+                new_args = json.loads(raw)
+            resolved.append({**tc, "arguments": new_args})
+            logger.info("resolved_dependent_args", tool=tc["name"])
+        except Exception as e:
+            logger.warning("resolve_args_failed", tool=tc["name"], error=str(e))
+            resolved.append(tc)  # fallback to original args
+
+    return resolved
+
+
+async def executor_node(state: AgentState, config: RunnableConfig) -> dict:
     """Execute planned tool calls with concurrency and interrupt for risky ops."""
     writer = get_stream_writer()
     registry: ToolRegistry = config["configurable"]["registry"]
@@ -171,25 +233,19 @@ async def executor_node(state: AgentState, config: dict) -> dict:
     if not tool_calls:
         return {"tool_results": []}
 
-    # --- Interrupt for dangerous operations ---
+    # --- Log dangerous operations (auto-approved for now) ---
+    # TODO: Add frontend confirmation UI, then re-enable interrupt() here.
     dangerous = [tc for tc in tool_calls if tc.get("risk_level") not in ("read", None)]
     if dangerous:
-        # interrupt() pauses the graph; the value is surfaced to the caller.
-        # When the user resumes, interrupt() returns the resume value.
-        user_decision = interrupt({
-            "type": "confirmation_required",
-            "message": "以下操作需要确认后才能执行：",
-            "pending_tools": [
+        writer(_make_event("agent.confirm_auto", {
+            "message": "以下写操作已自动批准执行：",
+            "tools": [
                 {"name": tc["name"], "arguments": tc["arguments"], "risk_level": tc["risk_level"]}
                 for tc in dangerous
             ],
-        })
-        # If user explicitly rejected, skip dangerous tools
-        if isinstance(user_decision, str) and user_decision.lower() in ("no", "cancel", "reject"):
-            tool_calls = [tc for tc in tool_calls if tc.get("risk_level") in ("read", None)]
-            if not tool_calls:
-                return {"tool_results": [{"name": "user_cancelled", "ok": False,
-                                          "result": {"message": "用户取消了操作"}}]}
+        }))
+        logger.info("dangerous_tools_auto_approved",
+                     tools=[tc["name"] for tc in dangerous])
 
     # --- Group by parallel_group and execute concurrently ---
     groups: dict[int, list[dict]] = {}
@@ -199,9 +255,16 @@ async def executor_node(state: AgentState, config: dict) -> dict:
 
     all_results: list[dict] = []
     step_index = 0
+    provider: FallbackProvider = config["configurable"]["provider"]
 
     for group_id in sorted(groups.keys()):
         group = groups[group_id]
+
+        # For group 1+, resolve arguments using LLM with previous results
+        if group_id > 0 and all_results:
+            group = await _resolve_dependent_args(
+                group, all_results, state["user_content"], provider, writer,
+            )
 
         async def _execute_one(tc: dict, idx: int) -> dict:
             """Execute a single tool call with error handling."""
@@ -223,6 +286,9 @@ async def executor_node(state: AgentState, config: dict) -> dict:
                 )
                 ok = "error" not in result or result.get("code") is None
                 entry = {"name": name, "result": result, "ok": ok}
+                # For write tools, include what was written so synthesizer can stay consistent
+                if tc.get("risk_level") not in ("read", None) and args.get("content"):
+                    entry["written_content"] = args["content"]
             except asyncio.TimeoutError:
                 entry = {"name": name, "ok": False,
                          "result": {"error": f"Tool '{name}' timed out after 60s"}}
@@ -259,7 +325,7 @@ async def executor_node(state: AgentState, config: dict) -> dict:
     return {"tool_results": all_results}
 
 
-async def synthesizer_node(state: AgentState, config: dict) -> dict:
+async def synthesizer_node(state: AgentState, config: RunnableConfig) -> dict:
     """Stream a final answer using tool results as context."""
     writer = get_stream_writer()
     provider: FallbackProvider = config["configurable"]["provider"]
@@ -272,12 +338,7 @@ async def synthesizer_node(state: AgentState, config: dict) -> dict:
     # System prompt for synthesis
     messages.append({
         "role": "system",
-        "content": (
-            "你是一个智能 AI 助手。下面是你通过工具获取到的信息，"
-            "请根据这些数据用自然语言回复用户的问题。"
-            "请用简洁、专业的方式回复，适当组织信息使其易于阅读。"
-            "如果结果中包含来源链接（url），请在回复中引用这些来源，格式如：[来源标题](url)。"
-        ),
+        "content": SYNTHESIZER_PROMPT,
     })
 
     # Include conversation history for context
@@ -289,10 +350,12 @@ async def synthesizer_node(state: AgentState, config: dict) -> dict:
         context_parts = []
         for tr in tool_results:
             status = "成功" if tr.get("ok") else "失败"
-            context_parts.append(
-                f"[工具: {tr['name']}] (状态: {status})\n"
-                f"{json.dumps(tr['result'], ensure_ascii=False, indent=2)}"
-            )
+            parts = [f"[工具: {tr['name']}] (状态: {status})"]
+            # For write tools, show what content was written
+            if tr.get("written_content"):
+                parts.append(f"已写入内容:\n{tr['written_content']}")
+            parts.append(json.dumps(tr['result'], ensure_ascii=False, indent=2))
+            context_parts.append("\n".join(parts))
         context = "\n\n---\n\n".join(context_parts)
         messages.append({
             "role": "user",

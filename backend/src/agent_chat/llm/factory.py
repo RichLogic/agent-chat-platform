@@ -76,14 +76,6 @@ def _build_provider(name: str, settings: Settings) -> LLMProvider:
 
 
 def create_provider(settings: Settings) -> FallbackProvider:
-    """Create a provider with optional fallback."""
-    primary_name = settings.llm_provider
-    fallback_name = "kimi" if primary_name != "kimi" else "poe"
-
-    primary = _build_provider(primary_name, settings)
-
-    # Only create fallback if it has credentials
-    fallback_key = settings.kimi_api_key if fallback_name == "kimi" else settings.poe_api_key
-    fallback = _build_provider(fallback_name, settings) if fallback_key else None
-
-    return FallbackProvider(primary, fallback)
+    """Create a provider (no fallback — errors surface directly to user)."""
+    primary = _build_provider(settings.llm_provider, settings)
+    return FallbackProvider(primary, None)

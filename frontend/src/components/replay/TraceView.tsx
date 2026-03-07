@@ -7,7 +7,7 @@ interface TraceViewProps {
   defaultExpandAll?: boolean
 }
 
-type TraceEntryType = 'run.start' | 'messages.sent' | 'text' | 'tool.call' | 'tool.result' | 'provider.fallback' | 'llm.usage' | 'run.finish' | 'error'
+type TraceEntryType = 'run.start' | 'messages.sent' | 'agent.plan' | 'text' | 'tool.call' | 'tool.result' | 'provider.fallback' | 'llm.usage' | 'run.finish' | 'error'
 
 interface TraceEntry {
   type: TraceEntryType
@@ -27,6 +27,7 @@ function CollapsibleEntry({ entry, defaultOpen = false, stepDuration }: { entry:
     'run.start': 'border-l-success',
     'run.finish': 'border-l-success',
     'messages.sent': 'border-l-blue-400',
+    'agent.plan': 'border-l-violet-400',
     text: 'border-l-primary',
     'tool.call': 'border-l-amber-400',
     'tool.result': 'border-l-amber-400',
@@ -39,6 +40,7 @@ function CollapsibleEntry({ entry, defaultOpen = false, stepDuration }: { entry:
     'run.start': 'bg-success/15 text-success',
     'run.finish': 'bg-success/15 text-success',
     'messages.sent': 'bg-blue-500/15 text-blue-600',
+    'agent.plan': 'bg-violet-500/15 text-violet-700',
     text: 'bg-primary/15 text-primary',
     'tool.call': 'bg-amber-500/15 text-amber-700',
     'tool.result': 'bg-amber-500/15 text-amber-700',
@@ -160,6 +162,17 @@ export default function TraceView({ runId, onClose, defaultExpandAll }: TraceVie
                 detail: formatted,
               })
               textCallIndex = d.call_index
+            } else if (event.type === 'agent.plan') {
+              const d = event.data as { thought: string; tool_calls: Array<{ name: string; arguments: Record<string, unknown>; parallel_group?: number }>; raw_plan: Record<string, unknown> }
+              const toolSummary = d.tool_calls.length > 0
+                ? d.tool_calls.map((tc, i) => `  ${i + 1}. ${tc.name}(${JSON.stringify(tc.arguments)})${tc.parallel_group != null ? ` [group ${tc.parallel_group}]` : ''}`).join('\n')
+                : '  (no tools needed)'
+              result.push({
+                type: 'agent.plan',
+                ts: event.ts,
+                label: `Plan: ${d.tool_calls.length} tool call${d.tool_calls.length !== 1 ? 's' : ''}`,
+                detail: `Thought: ${d.thought}\n\nTool Calls:\n${toolSummary}`,
+              })
             } else if (event.type === 'text.delta') {
               const d = event.data as { content: string }
               textContent += d.content

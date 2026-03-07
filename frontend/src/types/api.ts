@@ -91,3 +91,20 @@ export interface SharedEvent {
 export interface SharedEventsResponse {
   events: SharedEvent[]
 }
+
+export interface ConversationCacheEntry {
+  messages: Message[]
+  isStreaming: boolean
+  runId: string | null
+  pollOffset: number
+}
+
+export interface ActiveRunResponse {
+  active_run: { id: string; status: string } | null
+}
+
+export interface PollRunResponse {
+  events: Array<{ type: string; ts: string; data: Record<string, unknown> }>
+  next_offset: number
+  run_status: 'running' | 'finished' | 'failed'
+}
