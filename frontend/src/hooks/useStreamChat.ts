@@ -17,7 +17,13 @@ export function useStreamChat() {
     setMessages(data.items)
   }
 
-  async function sendMessage(conversationId: string, content: string, fileIds?: string[], files?: FileInfo[]) {
+  async function sendMessage(
+    conversationId: string,
+    content: string,
+    fileIds?: string[],
+    files?: FileInfo[],
+    agentMode?: boolean,
+  ) {
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -42,7 +48,12 @@ export function useStreamChat() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversation_id: conversationId, content, file_ids: fileIds }),
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          content,
+          file_ids: fileIds,
+          agent_mode: agentMode ?? false,
+        }),
         credentials: 'include',
         signal: controller.signal,
       })

@@ -314,3 +314,28 @@ async def handle_chat_stream(
         yield error_event
         await write_event(settings.data_dir, run_id, error_event)
         await fail_run(run_id)
+
+
+async def handle_chat_stream_router(
+    conversation_id: str,
+    user_content: str,
+    user_id: str,
+    settings: Settings,
+    file_ids: list[str] | None = None,
+    agent_mode: bool = False,
+) -> AsyncIterator[dict]:
+    """Route to LangGraph agent or original tool-loop based on agent_mode."""
+    if agent_mode:
+        from agent_chat.services.langgraph_agent_service import (
+            handle_chat_stream_langgraph,
+        )
+
+        async for event in handle_chat_stream_langgraph(
+            conversation_id, user_content, user_id, settings, file_ids
+        ):
+            yield event
+    else:
+        async for event in handle_chat_stream(
+            conversation_id, user_content, user_id, settings, file_ids
+        ):
+            yield event
