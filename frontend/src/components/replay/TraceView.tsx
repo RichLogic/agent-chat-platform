@@ -7,7 +7,7 @@ interface TraceViewProps {
   defaultExpandAll?: boolean
 }
 
-type TraceEntryType = 'run.start' | 'messages.sent' | 'text' | 'tool.call' | 'tool.result' | 'provider.fallback' | 'run.finish' | 'error'
+type TraceEntryType = 'run.start' | 'messages.sent' | 'text' | 'tool.call' | 'tool.result' | 'provider.fallback' | 'llm.usage' | 'run.finish' | 'error'
 
 interface TraceEntry {
   type: TraceEntryType
@@ -31,6 +31,7 @@ function CollapsibleEntry({ entry, defaultOpen = false, stepDuration }: { entry:
     'tool.call': 'border-l-amber-400',
     'tool.result': 'border-l-amber-400',
     'provider.fallback': 'border-l-yellow-400',
+    'llm.usage': 'border-l-emerald-400',
     error: 'border-l-error',
   }
 
@@ -42,6 +43,7 @@ function CollapsibleEntry({ entry, defaultOpen = false, stepDuration }: { entry:
     'tool.call': 'bg-amber-500/15 text-amber-700',
     'tool.result': 'bg-amber-500/15 text-amber-700',
     'provider.fallback': 'bg-yellow-500/15 text-yellow-700',
+    'llm.usage': 'bg-emerald-500/15 text-emerald-700',
     error: 'bg-error/15 text-error',
   }
 
@@ -200,6 +202,15 @@ export default function TraceView({ runId, onClose, defaultExpandAll }: TraceVie
                 label: `Fallback: ${d.from_provider} → ${d.to_provider}`,
                 detail: `Provider ${d.from_provider} failed, switching to ${d.to_provider}`,
                 stepIndex: d.step_index,
+              })
+            } else if (event.type === 'llm.usage') {
+              const d = event.data as { call_index: number; token_usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }
+              const u = d.token_usage
+              result.push({
+                type: 'llm.usage',
+                ts: event.ts,
+                label: `LLM Call #${d.call_index + 1} — ${u.prompt_tokens} in + ${u.completion_tokens} out = ${u.total_tokens} tokens`,
+                detail: '',
               })
             } else if (event.type === 'run.finish') {
               // Flush remaining text

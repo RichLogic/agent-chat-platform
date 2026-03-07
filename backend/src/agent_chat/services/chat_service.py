@@ -213,6 +213,14 @@ async def handle_chat_stream(
 
             total_usage = _merge_usage(total_usage, token_usage)
 
+            # Emit per-call token usage
+            if token_usage:
+                usage_event = _make_event("llm.usage", {
+                    "call_index": step_index,
+                    "token_usage": token_usage,
+                })
+                await write_event(settings.data_dir, run_id, usage_event)
+
             # Check for tool call
             tool_call = _try_parse_tool_call(accumulated_content) if maybe_tool else None
 

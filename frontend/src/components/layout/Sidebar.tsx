@@ -105,6 +105,51 @@ function ConversationItem({
   )
 }
 
+function RefreshMcpButton() {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [count, setCount] = useState(0)
+
+  async function handleRefresh() {
+    setStatus('loading')
+    try {
+      const resp = await fetch('/api/tools/refresh-mcp', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!resp.ok) throw new Error()
+      const data = await resp.json()
+      setCount(data.tools_registered)
+      setStatus('success')
+      setTimeout(() => setStatus('idle'), 2000)
+    } catch {
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 2000)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleRefresh}
+      disabled={status === 'loading'}
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white/80 disabled:opacity-50"
+    >
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        className={status === 'loading' ? 'animate-spin' : ''}
+      >
+        <path d="M21 2v6h-6" />
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+        <path d="M3 22v-6h6" />
+        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+      </svg>
+      {status === 'loading' ? 'Refreshing...' :
+       status === 'success' ? `${count} MCP tools loaded` :
+       status === 'error' ? 'MCP unavailable' :
+       'Refresh MCP Tools'}
+    </button>
+  )
+}
+
 export default function Sidebar({ conversations, activeId, onSelect, onCreate, onDelete }: SidebarProps) {
   return (
     <div className="flex h-full w-64 flex-col bg-surface-dark text-white">
@@ -138,6 +183,11 @@ export default function Sidebar({ conversations, activeId, onSelect, onCreate, o
             onDelete={() => onDelete(conv.id)}
           />
         ))}
+      </div>
+
+      {/* Bottom actions */}
+      <div className="border-t border-white/10 px-2 py-2">
+        <RefreshMcpButton />
       </div>
     </div>
   )

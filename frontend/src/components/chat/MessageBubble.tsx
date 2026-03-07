@@ -68,14 +68,23 @@ export default function MessageBubble({ message, isStreaming, onViewTrace, expan
           )}
         </div>
 
-        {/* Trace button (hidden in expanded mode — trace is shown inline) */}
-        {!expandedMode && !isUser && message.run_id && !isStreaming && (
-          <button
-            onClick={() => onViewTrace?.(message.run_id!)}
-            className="mt-1 text-xs text-text-muted transition-colors hover:text-primary"
-          >
-            View trace
-          </button>
+        {/* Token usage + Trace button (hidden in expanded mode) */}
+        {!expandedMode && !isUser && !isStreaming && (
+          <div className="mt-1 flex items-center gap-3">
+            {message.token_usage && (
+              <span className="text-[11px] text-text-muted">
+                {message.token_usage.total_tokens} tokens
+              </span>
+            )}
+            {message.run_id && (
+              <button
+                onClick={() => onViewTrace?.(message.run_id!)}
+                className="text-xs text-text-muted transition-colors hover:text-primary"
+              >
+                View trace
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

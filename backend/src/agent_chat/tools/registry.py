@@ -98,6 +98,23 @@ async def get_registry() -> ToolRegistry:
     return _registry
 
 
+async def refresh_mcp_tools() -> int:
+    """Re-discover MCP tools and register them. Returns count of newly registered tools."""
+    registry = await get_registry()
+    try:
+        from agent_chat.config import get_settings
+        settings = get_settings()
+        if not settings.mcp_notes_url:
+            return 0
+        from agent_chat.tools.mcp_adapter import discover_and_register_mcp_tools
+        count = await discover_and_register_mcp_tools(registry, settings.mcp_notes_url)
+        logger.info("mcp_tools_refreshed", count=count, url=settings.mcp_notes_url)
+        return count
+    except Exception as e:
+        logger.error("mcp_refresh_failed", error=str(e))
+        raise
+
+
 async def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.weather import WeatherTool
     from agent_chat.tools.news import NewsTool
@@ -106,6 +123,7 @@ async def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.search_memory import SearchMemoryTool
     from agent_chat.tools.kb_search import KBSearchTool
     from agent_chat.tools.ingest_webpage import IngestWebpageTool
+    from agent_chat.tools.web_fetch import WebFetchTool
     registry.register(WeatherTool())
     registry.register(NewsTool())
     registry.register(SearchTool())
@@ -113,6 +131,7 @@ async def _register_all_tools(registry: ToolRegistry) -> None:
     registry.register(SearchMemoryTool())
     registry.register(KBSearchTool())
     registry.register(IngestWebpageTool())
+    registry.register(WebFetchTool())
 
     # MCP tool discovery (optional, non-blocking)
     try:
