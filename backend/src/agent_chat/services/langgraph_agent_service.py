@@ -218,10 +218,12 @@ async def handle_chat_stream_langgraph(
                 "tool_calls": [],
                 "tool_results": [],
                 "final_text": "",
+                "token_usage": None,
             }
 
         # 9. Stream the graph — custom events are our SSE events
         final_text = ""
+        total_usage = None
         async for chunk in graph.astream(
             graph_input,
             langgraph_config,
@@ -236,17 +238,23 @@ async def handle_chat_stream_langgraph(
                 await write_event(settings.data_dir, run_id, data)
             elif mode == "updates":
                 # data is a dict of {node_name: state_update}
-                # Extract final_text from synthesizer output
+                # Extract final_text and token_usage from node outputs
                 if isinstance(data, dict):
                     for node_name, update in data.items():
-                        if isinstance(update, dict) and "final_text" in update:
-                            final_text = update["final_text"]
+                        if isinstance(update, dict):
+                            if "final_text" in update:
+                                final_text = update["final_text"]
+                            if "token_usage" in update and update["token_usage"]:
+                                total_usage = update["token_usage"]
 
         # If we didn't capture final_text from updates, try to get it from state
-        if not final_text:
+        if not final_text or total_usage is None:
             final_state = await graph.aget_state(langgraph_config)
             if final_state and final_state.values:
-                final_text = final_state.values.get("final_text", "")
+                if not final_text:
+                    final_text = final_state.values.get("final_text", "")
+                if total_usage is None:
+                    total_usage = final_state.values.get("token_usage")
 
         # 10. Save assistant message
         await create_message(
@@ -256,14 +264,15 @@ async def handle_chat_stream_langgraph(
             provider=provider.provider_name,
             model=provider.model,
             run_id=run_id,
+            token_usage=total_usage,
         )
 
         # 11. Finish run
-        await finish_run(run_id, None)
+        await finish_run(run_id, total_usage)
 
         finish_event = _make_event("run.finish", {
             "finish_reason": "stop",
-            "token_usage": None,
+            "token_usage": total_usage,
         })
         yield finish_event
         await write_event(settings.data_dir, run_id, finish_event)

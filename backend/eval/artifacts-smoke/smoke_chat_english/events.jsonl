@@ -1,0 +1,5 @@
+{"type": "run.start", "ts": "2026-03-07T13:19:52.388969+00:00", "data": {"run_id": "e2e94fb354bd4b25988c3214937ab784", "provider": "mock", "model": "mock-model"}}
+{"type": "text.delta", "ts": "2026-03-07T13:19:52.390536+00:00", "data": {"content": "Hello! "}}
+{"type": "text.delta", "ts": "2026-03-07T13:19:52.390729+00:00", "data": {"content": "I'm an AI assistant. How can I help you today?"}}
+{"type": "run.finish", "ts": "2026-03-07T13:19:52.391199+00:00", "data": {"finish_reason": "stop", "token_usage": {"prompt_tokens": 10, "completion_tokens": 12, "total_tokens": 22}}}
+{"type": "conversation.title", "ts": "2026-03-07T13:19:52.391519+00:00", "data": {"title": "Smoke Test"}}

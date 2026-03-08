@@ -1,0 +1,28 @@
+{
+  "id": "smoke_chat_basic",
+  "category": "smoke",
+  "input": "你好",
+  "expected_tool": null,
+  "assertions": [
+    {
+      "response_not_empty": true
+    },
+    {
+      "no_error": true
+    }
+  ],
+  "response": "Hello! I'm an AI assistant. How can I help you today?",
+  "tool_calls": [],
+  "ttft_ms": 9328.2,
+  "total_ms": 9329.4,
+  "token_usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 12,
+    "total_tokens": 22
+  },
+  "simulated": false,
+  "passed": true,
+  "failures": [],
+  "reasons": [],
+  "fail_reason": null
+}

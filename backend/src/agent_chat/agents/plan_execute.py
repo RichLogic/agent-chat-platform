@@ -54,6 +54,19 @@ class AgentState(TypedDict):
     tool_calls: list[dict]       # [{name, arguments, parallel_group, risk_level}]
     tool_results: list[dict]     # [{name, result, ok, error?}]
     final_text: str              # synthesizer's streamed answer
+    token_usage: dict | None     # accumulated {prompt_tokens, completion_tokens, total_tokens}
+
+
+def _merge_usage(a: dict | None, b: dict | None) -> dict | None:
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return {
+        "prompt_tokens": a.get("prompt_tokens", 0) + b.get("prompt_tokens", 0),
+        "completion_tokens": a.get("completion_tokens", 0) + b.get("completion_tokens", 0),
+        "total_tokens": a.get("total_tokens", 0) + b.get("total_tokens", 0),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -128,12 +141,21 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
     }))
 
     response = await provider.chat(planner_messages)
+    planner_usage = response.usage
 
     # Emit raw LLM response for debugging
     writer(_make_event("messages.received", {
         "call_index": 0,
         "raw_content": response.content,
     }))
+
+    # Emit planner token usage
+    if planner_usage:
+        writer(_make_event("llm.usage", {
+            "call_index": 0,
+            "stage": "planner",
+            "token_usage": planner_usage,
+        }))
 
     plan = _parse_plan(response.content)
     raw_calls = plan.get("tool_calls", [])
@@ -158,7 +180,7 @@ async def planner_node(state: AgentState, config: RunnableConfig) -> dict:
     }))
 
     logger.info("planner_done", thought=plan.get("thought", ""), n_tools=len(tool_calls))
-    return {"plan": plan, "tool_calls": tool_calls}
+    return {"plan": plan, "tool_calls": tool_calls, "token_usage": planner_usage}
 
 
 async def _resolve_dependent_args(
@@ -414,12 +436,25 @@ async def synthesizer_node(state: AgentState, config: RunnableConfig) -> dict:
 
     # Stream final answer
     full_text = ""
+    synth_usage = None
     async for chunk in provider.stream_chat(messages):
         if chunk.content:
             full_text += chunk.content
             writer(_make_event("text.delta", {"content": chunk.content}))
+        if chunk.usage:
+            synth_usage = chunk.usage
 
-    return {"final_text": full_text}
+    if synth_usage:
+        writer(_make_event("llm.usage", {
+            "call_index": 1,
+            "stage": "synthesizer",
+            "token_usage": synth_usage,
+        }))
+
+    prev_usage = state.get("token_usage")
+    total_usage = _merge_usage(prev_usage, synth_usage)
+
+    return {"final_text": full_text, "token_usage": total_usage}
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eval Report — 2026-03-07</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#f8fafc; color:#1e293b; padding:2rem; }
+  h1 { font-size:1.5rem; margin-bottom:.25rem; }
+  .meta { color:#64748b; margin-bottom:1.5rem; font-size:.875rem; }
+  .cards { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:.5rem;
+           padding:1rem 1.25rem; min-width:140px; }
+  .card .label { font-size:.75rem; color:#64748b; text-transform:uppercase; }
+  .card .value { font-size:1.5rem; font-weight:700; margin-top:.25rem; }
+  .bar-bg { background:#e2e8f0; border-radius:4px; height:8px; width:200px; margin-top:.5rem; }
+  .bar-fg { height:8px; border-radius:4px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:2rem; background:#fff;
+           border:1px solid #e2e8f0; border-radius:.5rem; overflow:hidden; }
+  th { background:#f1f5f9; text-align:left; padding:.5rem .75rem; font-size:.75rem;
+       text-transform:uppercase; color:#64748b; }
+  td { padding:.5rem .75rem; border-top:1px solid #f1f5f9; font-size:.875rem; }
+  tr.fail td { background:#fef2f2; }
+  a { color:#2563eb; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  h2 { font-size:1.125rem; margin:1.5rem 0 .75rem; }
+</style>
+</head>
+<body>
+<h1>Eval Report</h1>
+<p class="meta">2026-03-07T13:19:52.392017+00:00</p>
+
+<div class="cards">
+  <div class="card">
+    <div class="label">Total</div>
+    <div class="value">3</div>
+  </div>
+  <div class="card">
+    <div class="label">Passed</div>
+    <div class="value" style="color:#16a34a">3</div>
+  </div>
+  <div class="card">
+    <div class="label">Failed</div>
+    <div class="value" style="color:#dc2626">0</div>
+  </div>
+  <div class="card">
+    <div class="label">Pass Rate</div>
+    <div class="value">100.0%</div>
+    <div class="bar-bg"><div class="bar-fg" style="width:100%;background:#16a34a"></div></div>
+  </div>
+  <div class="card">
+    <div class="label">Latency P50 / P90</div>
+    <div class="value" style="font-size:1rem">2 / 9329 ms</div>
+  </div>
+  <div class="card">
+    <div class="label">TTFT P50 / P90</div>
+    <div class="value" style="font-size:1rem">2 / 9328 ms</div>
+  </div>
+</div>
+
+<h2>By Category</h2>
+<table>
+<tr><th>Category</th><th>Total</th><th>Passed</th><th>Rate</th></tr>
+<tr><td>smoke</td><td>3</td><td>3</td><td style="color:#16a34a;font-weight:600">100%</td></tr>
+</table>
+
+<h2>Failures</h2>
+<p style='color:#64748b'>None — all cases passed.</p>
+<table style="display:none">
+<tr><th>Case</th><th>Category</th><th>Input</th><th>Reasons</th><th>Time (ms)</th></tr>
+</table>
+
+<h2>All Results</h2>
+<table>
+<tr><th>Case</th><th>Category</th><th>Status</th><th>Total (ms)</th><th>TTFT (ms)</th></tr>
+<tr class="pass"><td><a href="smoke_chat_basic/events.jsonl">smoke_chat_basic</a></td><td>smoke</td><td>PASS</td><td>9329.4</td><td>9328.2</td></tr>
+<tr class="pass"><td><a href="smoke_chat_longer/events.jsonl">smoke_chat_longer</a></td><td>smoke</td><td>PASS</td><td>2.3</td><td>1.6</td></tr>
+<tr class="pass"><td><a href="smoke_chat_english/events.jsonl">smoke_chat_english</a></td><td>smoke</td><td>PASS</td><td>2.2</td><td>1.6</td></tr>
+</table>
+
+</body>
+</html>

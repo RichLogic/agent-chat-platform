@@ -41,19 +41,21 @@ class LLMProvider:
             stream_options={"include_usage": True},
         )
         async for chunk in response:
-            if not chunk.choices and chunk.usage:
-                yield StreamChunk(
-                    usage={
-                        "prompt_tokens": chunk.usage.prompt_tokens,
-                        "completion_tokens": chunk.usage.completion_tokens,
-                        "total_tokens": chunk.usage.total_tokens,
-                    }
-                )
-                continue
+            usage = None
+            if chunk.usage:
+                usage = {
+                    "prompt_tokens": chunk.usage.prompt_tokens,
+                    "completion_tokens": chunk.usage.completion_tokens,
+                    "total_tokens": chunk.usage.total_tokens,
+                }
+
             if chunk.choices:
                 delta = chunk.choices[0].delta
-                if delta.content:
-                    yield StreamChunk(content=delta.content)
+                content = delta.content or ""
+                if content or usage:
+                    yield StreamChunk(content=content, usage=usage)
+            elif usage:
+                yield StreamChunk(usage=usage)
 
     async def chat(self, messages: list[dict]) -> ChatResponse:
         response = await self.client.chat.completions.create(

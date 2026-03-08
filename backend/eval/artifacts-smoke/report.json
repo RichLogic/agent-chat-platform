@@ -1,0 +1,108 @@
+{
+  "summary": {
+    "timestamp": "2026-03-07T13:19:52.392017+00:00",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "by_category": {
+      "smoke": {
+        "total": 3,
+        "passed": 3
+      }
+    },
+    "latency": {
+      "total_ms_p50": 2.3,
+      "total_ms_p90": 9329.4,
+      "total_ms_max": 9329.4,
+      "ttft_ms_p50": 1.6,
+      "ttft_ms_p90": 9328.2
+    }
+  },
+  "results": [
+    {
+      "id": "smoke_chat_basic",
+      "category": "smoke",
+      "input": "你好",
+      "expected_tool": null,
+      "assertions": [
+        {
+          "response_not_empty": true
+        },
+        {
+          "no_error": true
+        }
+      ],
+      "response": "Hello! I'm an AI assistant. How can I help you today?",
+      "tool_calls": [],
+      "ttft_ms": 9328.2,
+      "total_ms": 9329.4,
+      "token_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 12,
+        "total_tokens": 22
+      },
+      "simulated": false,
+      "passed": true,
+      "failures": [],
+      "reasons": [],
+      "fail_reason": null
+    },
+    {
+      "id": "smoke_chat_longer",
+      "category": "smoke",
+      "input": "请用一句话介绍你自己",
+      "expected_tool": null,
+      "assertions": [
+        {
+          "response_not_empty": true
+        },
+        {
+          "no_error": true
+        }
+      ],
+      "response": "Hello! I'm an AI assistant. How can I help you today?",
+      "tool_calls": [],
+      "ttft_ms": 1.6,
+      "total_ms": 2.3,
+      "token_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 12,
+        "total_tokens": 22
+      },
+      "simulated": false,
+      "passed": true,
+      "failures": [],
+      "reasons": [],
+      "fail_reason": null
+    },
+    {
+      "id": "smoke_chat_english",
+      "category": "smoke",
+      "input": "Hello, how are you?",
+      "expected_tool": null,
+      "assertions": [
+        {
+          "response_not_empty": true
+        },
+        {
+          "no_error": true
+        }
+      ],
+      "response": "Hello! I'm an AI assistant. How can I help you today?",
+      "tool_calls": [],
+      "ttft_ms": 1.6,
+      "total_ms": 2.2,
+      "token_usage": {
+        "prompt_tokens": 10,
+        "completion_tokens": 12,
+        "total_tokens": 22
+      },
+      "simulated": false,
+      "passed": true,
+      "failures": [],
+      "reasons": [],
+      "fail_reason": null
+    }
+  ]
+}
