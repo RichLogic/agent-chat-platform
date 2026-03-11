@@ -48,6 +48,7 @@ def extract_result_from_events(events: list[dict]) -> dict:
     """Derive final_answer, tool_calls, ttft_ms, total_ms, error from raw SSE events."""
     text_parts: list[str] = []
     tool_calls: list[dict] = []
+    tool_result_codes: list[str] = []
     first_text_ts: float | None = None
     run_start_ts: float | None = None
     run_finish_ts: float | None = None
@@ -72,6 +73,11 @@ def extract_result_from_events(events: list[dict]) -> dict:
                 "arguments": data.get("arguments"),
             })
 
+        elif ev_type == "tool.result":
+            code = ev.get("data", {}).get("code")
+            if code:
+                tool_result_codes.append(code)
+
         elif ev_type == "run.finish":
             run_finish_ts = _ts_ms(ev)
             token_usage = ev.get("data", {}).get("token_usage")
@@ -95,11 +101,35 @@ def extract_result_from_events(events: list[dict]) -> dict:
         "ttft_ms": ttft_ms,
         "total_ms": total_ms,
         "token_usage": token_usage,
+        "tool_result_codes": tool_result_codes,
     }
     if error:
         result["error"] = error
 
     return result
+
+
+def extract_trace_signals(events: list[dict]) -> dict:
+    """Extract compact trace signals for reliability debugging and demos."""
+    event_types = [ev.get("type", "") for ev in events]
+    tool_result_codes = [
+        ev.get("data", {}).get("code")
+        for ev in events
+        if ev.get("type") == "tool.result"
+    ]
+
+    return {
+        "event_count": len(events),
+        "planner_stage_seen": any(t in {"planner.start", "planner.done"} for t in event_types),
+        "tool_call_count": sum(1 for t in event_types if t == "tool.call"),
+        "retry_count": sum(1 for t in event_types if t == "tool.retry"),
+        "tool_failure_count": sum(
+            1
+            for code in tool_result_codes
+            if code in {"EXECUTION_ERROR", "TIMEOUT", "INVALID_PARAMS", "POLICY_DENIED", "USER_DENIED"}
+        ),
+        "final_answer_seen": any(t == "run.finish" for t in event_types),
+    }
 
 
 def _ts_ms(ev: dict) -> float:
@@ -187,6 +217,7 @@ async def run_case_live(
 
     # 4. Extract structured result
     extracted = extract_result_from_events(events)
+    trace_signals = extract_trace_signals(events)
 
     # Build result dict (compatible with judge)
     result: dict = {
@@ -201,6 +232,7 @@ async def run_case_live(
         "total_ms": extracted.get("total_ms") or wall_ms,
         "token_usage": extracted["token_usage"],
         "simulated": False,
+        "key_trace_signals": trace_signals,
     }
     if "error" in extracted:
         result["error"] = extracted["error"]

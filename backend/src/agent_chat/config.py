@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     max_redirects: int = 5
     max_response_bytes: int = 5 * 1024 * 1024  # 5 MB
 
+
+    # Minimal sandbox / command execution story (extension point)
+    executor_mode: str = "local"  # "local" | "sandbox"
+    command_allowlist: list[str] = []
+    command_denylist: list[str] = ["rm", "sudo", "mkfs", "dd"]
+
     # Logging
     log_level: str = "INFO"
 

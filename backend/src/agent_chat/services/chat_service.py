@@ -154,6 +154,10 @@ async def handle_chat_stream(
     yield start_event
     await write_event(settings.data_dir, run_id, start_event)
 
+    planner_start_event = _make_event("planner.start", {"run_id": run_id})
+    yield planner_start_event
+    await write_event(settings.data_dir, run_id, planner_start_event)
+
     try:
         # Load history and build messages array
         history = await list_messages(conversation_id)
@@ -351,6 +355,16 @@ async def handle_chat_stream(
                 yield tool_result_event
                 await write_event(settings.data_dir, run_id, tool_result_event)
 
+                attempts = (tool_result.get("_meta") or {}).get("attempts", 1)
+                if attempts > 1:
+                    retry_event = _make_event("tool.retry", {
+                        "name": tool_name,
+                        "attempts": attempts,
+                        "step_index": step_index,
+                    })
+                    yield retry_event
+                    await write_event(settings.data_dir, run_id, retry_event)
+
                 # Append tool interaction to messages for next iteration
                 messages.append({
                     "role": "assistant",
@@ -371,6 +385,9 @@ async def handle_chat_stream(
                 delta_event = _make_event("text.delta", {"content": accumulated_content})
                 yield delta_event
                 await write_event(settings.data_dir, run_id, delta_event)
+            planner_done_event = _make_event("planner.done", {"steps": step_index + 1})
+            yield planner_done_event
+            await write_event(settings.data_dir, run_id, planner_done_event)
             break
         else:
             # Exhausted MAX_TOOL_STEPS — use whatever accumulated_content we have
