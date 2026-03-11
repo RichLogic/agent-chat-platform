@@ -1,4 +1,4 @@
-.PHONY: test eval-smoke eval-nightly eval-compare lint
+.PHONY: test eval-smoke eval-nightly eval-compare eval-regression lint
 
 # Run all unit tests
 test:
@@ -25,6 +25,17 @@ eval-compare:
 		--baseline $(BASELINE) \
 		--current $(CURRENT) \
 		--max-pass-rate-drop 0.05
+
+
+# Interview-oriented regression run
+# Usage: make eval-regression CASE_FILE=interview_reliability.yaml
+CASE_FILE ?= interview_reliability.yaml
+eval-regression:
+	uv run --extra dev python -m eval.regression_runner \
+		--mode smoke \
+		--cases eval/cases \
+		--case-file $(CASE_FILE) \
+		--artifacts eval/artifacts-interview
 
 # Lint
 lint:
