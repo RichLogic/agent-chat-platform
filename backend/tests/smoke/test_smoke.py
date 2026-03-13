@@ -23,6 +23,12 @@ async def collect_sse_events(response: httpx.Response) -> list[dict]:
     return events
 
 
+def is_subsequence(expected: list[str], actual: list[str]) -> bool:
+    """Return True when ``expected`` appears in order within ``actual``."""
+    it = iter(actual)
+    return all(item in it for item in expected)
+
+
 async def test_conversation_crud(client: httpx.AsyncClient):
     # Create
     resp = await client.post("/api/conversations")
@@ -163,7 +169,8 @@ async def test_replay_events(client: httpx.AsyncClient):
         assert response.status_code == 200
         replayed = await collect_sse_events(response)
 
-    # Replayed events should contain the same core events (start, deltas, finish)
+    # Replay includes persisted internal trace events in addition to the
+    # user-visible stream, so the original stream should be an ordered subset.
     original_types = [e["type"] for e in original_events if e["type"] != "conversation.title"]
     replayed_types = [e["type"] for e in replayed]
-    assert original_types == replayed_types
+    assert is_subsequence(original_types, replayed_types)

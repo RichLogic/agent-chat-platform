@@ -90,7 +90,8 @@ class TestSchemaValidation:
     @pytest.mark.asyncio
     async def test_valid_params(self) -> None:
         result = await self.registry.execute("echo", {"message": "hello"})
-        assert result == {"echoed": "hello"}
+        assert result["echoed"] == "hello"
+        assert result["_meta"]["attempts"] == 1
 
     @pytest.mark.asyncio
     async def test_missing_required_param(self) -> None:
@@ -139,7 +140,9 @@ class TestRetry:
         with patch("agent_chat.tools.registry.asyncio.sleep", new_callable=AsyncMock):
             result = await registry.execute("flakey", {})
 
-        assert result == {"ok": True, "attempts": 3}
+        assert result["ok"] is True
+        assert result["attempts"] == 3
+        assert result["_meta"]["attempts"] == 3
 
     @pytest.mark.asyncio
     async def test_retry_exhausted(self) -> None:

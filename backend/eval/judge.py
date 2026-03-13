@@ -26,7 +26,11 @@ def judge_result(case: dict, result: dict) -> dict:
 def _check_rule(rule: str, expected, case: dict, result: dict) -> bool:
     """Check a single assertion rule."""
     if rule == "tool_called":
-        return result.get("expected_tool") == expected
+        if result.get("simulated"):
+            return result.get("expected_tool") == expected
+        tool_calls = result.get("tool_calls", [])
+        called = {tc.get("tool_name") for tc in tool_calls}
+        return expected in called
 
     if rule == "response_not_empty":
         # For simulated runs, we can't check actual response

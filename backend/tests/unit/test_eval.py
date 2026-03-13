@@ -72,7 +72,7 @@ class TestJudgeResult:
             "id": "t1",
             "assertions": [{"tool_called": "search"}],
         }
-        result = {"expected_tool": "search"}
+        result = {"tool_calls": [{"tool_name": "search"}], "simulated": False}
         judgment = judge_result(case, result)
         assert judgment["passed"] is True
         assert judgment["failures"] == []
@@ -84,10 +84,21 @@ class TestJudgeResult:
             "id": "t2",
             "assertions": [{"tool_called": "search"}],
         }
-        result = {"expected_tool": "weather"}
+        result = {"tool_calls": [{"tool_name": "weather"}], "simulated": False}
         judgment = judge_result(case, result)
         assert judgment["passed"] is False
         assert len(judgment["failures"]) == 1
+
+    def test_tool_called_simulated_uses_expected_tool(self) -> None:
+        from eval.judge import judge_result
+
+        case = {
+            "id": "t2b",
+            "assertions": [{"tool_called": "search"}],
+        }
+        result = {"expected_tool": "search", "simulated": True}
+        judgment = judge_result(case, result)
+        assert judgment["passed"] is True
 
     def test_response_not_empty_simulated(self) -> None:
         from eval.judge import judge_result
@@ -311,7 +322,6 @@ class TestCaseFilesValidation:
             assert "id" in case, f"Missing id in case"
             assert "category" in case, f"Missing category in {case.get('id')}"
             assert "input" in case, f"Missing input in {case.get('id')}"
-            assert "expected_tool" in case, f"Missing expected_tool in {case.get('id')}"
 
     def test_all_cases_have_assertions(self) -> None:
         from eval.runner import load_cases

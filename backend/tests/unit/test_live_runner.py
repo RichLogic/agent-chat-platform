@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from eval.live_runner import extract_result_from_events, parse_sse_line
+from eval.live_runner import extract_result_from_events, load_cases, parse_sse_line
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +92,12 @@ class TestExtractResult:
         assert result["tool_calls"][0]["tool_name"] == "weather"
         assert result["tool_calls"][0]["arguments"] == {"city": "Beijing"}
 
+    def test_tool_calls_accept_name_field(self):
+        events = _make_events()
+        events[1]["data"] = {"name": "weather", "arguments": {"city": "Beijing"}}
+        result = extract_result_from_events(events)
+        assert result["tool_calls"][0]["tool_name"] == "weather"
+
     def test_ttft_ms(self):
         result = extract_result_from_events(_make_events())
         # run.start = 0s, first text.delta = 1.2s → 1200 ms
@@ -166,9 +172,20 @@ class TestExtractAndJudge:
             "id": "s001",
             "assertions": [{"tool_called": "search"}],
         }
-        result = {"expected_tool": "weather", "simulated": False}
+        result = {"tool_calls": [{"tool_name": "weather"}], "simulated": False}
         judgment = judge_result(case, result)
         assert judgment["passed"] is False
+
+
+class TestLoadCases:
+    def test_load_specific_case_file(self, tmp_path: Path):
+        (tmp_path / "a.yaml").write_text("- id: a1\n  category: a\n  input: hi\n")
+        (tmp_path / "b.yaml").write_text("- id: b1\n  category: b\n  input: hi\n")
+
+        cases = load_cases(str(tmp_path), case_file="b.yaml")
+
+        assert len(cases) == 1
+        assert cases[0]["id"] == "b1"
 
 
 # ---------------------------------------------------------------------------

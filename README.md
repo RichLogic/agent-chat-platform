@@ -65,11 +65,14 @@ flowchart TD
 
 ```bash
 cd backend
-uv run --extra dev python -m eval.regression_runner \
-  --mode smoke \
-  --cases eval/cases \
-  --case-file interview_reliability.yaml \
-  --artifacts eval/artifacts-interview
+make eval-regression
+```
+
+真实链路回归：
+
+```bash
+cd backend
+AC_EVAL_TOKEN=your-shared-token make eval-regression-live
 ```
 
 支持 baseline 对比：

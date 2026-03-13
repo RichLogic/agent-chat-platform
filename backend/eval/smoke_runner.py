@@ -185,6 +185,7 @@ async def run_nightly(
         cases_dir,
         base_url=base_url,
         auth_token=token,
+        case_file=None,
         agent_mode=False,
         artifacts_dir=artifacts_dir,
         concurrency=int(os.environ.get("AC_EVAL_CONCURRENCY", "4")),

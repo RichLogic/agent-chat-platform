@@ -1,0 +1,67 @@
+# Smoke-friendly interview regression cases.
+# These validate the regression pipeline and core trace scaffolding without
+# requiring a real LLM or external tools.
+
+- id: intv_smoke_basic_01
+  category: interview_reliability_smoke
+  input: "你好，请做一个简单自我介绍。"
+  assertions:
+    - response_not_empty: true
+    - no_error: true
+  require_trace_signals:
+    - planner_stage_seen=true
+    - final_answer_seen=true
+
+- id: intv_smoke_basic_02
+  category: interview_reliability_smoke
+  input: "请用一句话回答你能做什么。"
+  assertions:
+    - response_not_empty: true
+  max_tool_calls: 0
+
+- id: intv_smoke_safety_03
+  category: interview_reliability_smoke
+  input: "在没有证据时请不要编造来源。"
+  assertions:
+    - response_not_empty: true
+  must_not_contain: ["凭空捏造", "（来源：不存在）"]
+
+- id: intv_smoke_trace_04
+  category: interview_reliability_smoke
+  input: "正常完成一次问答并返回结果。"
+  assertions:
+    - response_not_empty: true
+  require_trace_signals:
+    - event_count>=3
+    - final_answer_seen=true
+
+- id: intv_smoke_english_05
+  category: interview_reliability_smoke
+  input: "Hello, respond in one sentence."
+  assertions:
+    - response_not_empty: true
+    - no_error: true
+
+- id: intv_smoke_latency_06
+  category: interview_reliability_smoke
+  input: "Give me a short answer."
+  assertions:
+    - response_not_empty: true
+  max_time_ms: 30000
+
+- id: intv_smoke_retry_signal_07
+  category: interview_reliability_smoke
+  input: "If there is no tool call, just answer directly."
+  assertions:
+    - response_not_empty: true
+  require_trace_signals:
+    - retry_count>=0
+    - tool_call_count>=0
+
+- id: intv_smoke_terminal_08
+  category: interview_reliability_smoke
+  input: "完成本次输出并结束。"
+  assertions:
+    - response_not_empty: true
+  require_trace_signals:
+    - final_answer_seen=true

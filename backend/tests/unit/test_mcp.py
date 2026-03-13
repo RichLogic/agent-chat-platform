@@ -151,7 +151,7 @@ class TestAsyncRegistry:
         from agent_chat.tools.registry import ToolRegistry, _register_all_tools
         registry = ToolRegistry()
         await _register_all_tools(registry)
-        # Should have all 7 built-in tools
+        # Should have the built-in tools registered
         assert registry.get("weather") is not None
         assert registry.get("news") is not None
         assert registry.get("search") is not None
@@ -159,3 +159,5 @@ class TestAsyncRegistry:
         assert registry.get("search_memory") is not None
         assert registry.get("kb_search") is not None
         assert registry.get("ingest_webpage") is not None
+        assert registry.get("web_fetch") is not None
+        assert registry.get("command") is not None

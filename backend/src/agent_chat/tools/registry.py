@@ -155,7 +155,7 @@ class ToolRegistry:
             request = ExecutionRequest(
                 command=command,
                 tool_name=name,
-                risk_level=getattr(tool, "risk_level", "read"),
+                risk_level=tool.get_risk_level(arguments),
                 context=context,
             )
             guard_result = await self._guard.validate(request)
@@ -254,6 +254,7 @@ async def _register_all_tools(registry: ToolRegistry) -> None:
     from agent_chat.tools.kb_search import KBSearchTool
     from agent_chat.tools.ingest_webpage import IngestWebpageTool
     from agent_chat.tools.web_fetch import WebFetchTool
+    from agent_chat.tools.command import CommandTool
     registry.register(WeatherTool())
     registry.register(NewsTool())
     registry.register(SearchTool())
@@ -262,6 +263,7 @@ async def _register_all_tools(registry: ToolRegistry) -> None:
     registry.register(KBSearchTool())
     registry.register(IngestWebpageTool())
     registry.register(WebFetchTool())
+    registry.register(CommandTool())
 
     # MCP tool discovery (optional, non-blocking)
     try:

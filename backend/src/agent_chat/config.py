@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret: str = ""
     jwt_expiry_minutes: int = 60 * 24 * 7  # 7 days
+    eval_token: str = ""
+    eval_user_id: str = "eval_runner"
 
     # Frontend
     frontend_url: str = "http://localhost:8300"
@@ -71,6 +73,7 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+    approval_timeout_seconds: float = 120.0
 
     def model_post_init(self, __context: object) -> None:
         if not self.langgraph_checkpoint_db:

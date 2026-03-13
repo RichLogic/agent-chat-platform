@@ -37,6 +37,7 @@ async def _run(args: argparse.Namespace) -> int:
             args.cases,
             base_url=args.base_url,
             auth_token=args.token,
+            case_file=args.case_file,
             artifacts_dir=args.artifacts,
             agent_mode=args.agent_mode,
             concurrency=args.concurrency,

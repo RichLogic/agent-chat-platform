@@ -19,6 +19,10 @@ class Tool(ABC):
     required_scopes: set[str] = set()
     arg_redaction: list[str] = []
 
+    def get_risk_level(self, arguments: dict[str, Any] | None = None) -> Literal["read", "write", "destructive", "admin"]:
+        """Return the effective risk level for this tool invocation."""
+        return self.risk_level
+
     @abstractmethod
     async def execute(
         self, arguments: dict[str, Any], context: dict[str, Any] | None = None

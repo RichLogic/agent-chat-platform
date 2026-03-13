@@ -79,7 +79,13 @@ class PolicyEngine:
             return PolicyResult(Decision.CONFIRM, "Tool requires confirmation", redacted)
 
         # 4. Risk-level based policy
-        risk = getattr(tool, "risk_level", "read")
+        risk = tool.get_risk_level(arguments)
+
+        if tool.name == "command":
+            command = str(arguments.get("command", "")).strip()
+            base = command.split()[0] if command.split() else ""
+            if base in {"rm", "dd", "mkfs", "sudo"}:
+                return PolicyResult(Decision.DENY, f"High-risk command denied: {base}", redacted)
 
         if risk == "read":
             return PolicyResult(Decision.ALLOW, "", redacted)

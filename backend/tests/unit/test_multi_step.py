@@ -150,6 +150,25 @@ class TestToolCallParsing:
         from agent_chat.services.chat_service import _try_parse_tool_call
         assert _try_parse_tool_call('Not a json string') is None
 
+    def test_embedded_json_tool_call(self) -> None:
+        from agent_chat.services.chat_service import _try_parse_tool_call
+        text = '我先尝试调用工具。{"tool":"command","arguments":{"command":"sleep 10"}}'
+        result = _try_parse_tool_call(text)
+        assert result is not None
+        assert result["tool"] == "command"
+
+
+class TestForcedToolCall:
+    def test_unknown_tool_pattern(self) -> None:
+        from agent_chat.services.chat_service import _forced_tool_call
+        result = _forced_tool_call("调用一个不存在的 tool: super_calc。", 0)
+        assert result == {"tool": "super_calc", "arguments": {}}
+
+    def test_policy_denied_pattern(self) -> None:
+        from agent_chat.services.chat_service import _forced_tool_call
+        result = _forced_tool_call("执行高风险命令 rm -rf /tmp/demo。", 0)
+        assert result == {"tool": "command", "arguments": {"command": "rm -rf /tmp/demo"}}
+
 
 class TestMergeUsage:
     def test_both_none(self) -> None:

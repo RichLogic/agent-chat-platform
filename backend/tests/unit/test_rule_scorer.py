@@ -20,7 +20,7 @@ class TestBackwardCompat:
             "id": "t1",
             "assertions": [{"tool_called": "search"}, {"no_error": True}],
         }
-        result = {"expected_tool": "search"}
+        result = {"expected_tool": "search", "simulated": True}
         s = score(case, result)
         assert s["passed"] is True
         assert s["reasons"] == []
@@ -30,7 +30,7 @@ class TestBackwardCompat:
             "id": "t2",
             "assertions": [{"tool_called": "search"}],
         }
-        result = {"expected_tool": "weather"}
+        result = {"expected_tool": "weather", "simulated": True}
         s = score(case, result)
         assert s["passed"] is False
         assert any("tool_called" in r for r in s["reasons"])

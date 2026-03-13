@@ -16,10 +16,13 @@ from eval.report_html import generate_html_report
 from eval.scorers.rule_scorer import score as rule_score
 
 
-def load_cases(cases_dir: str) -> list[dict]:
+def load_cases(cases_dir: str, case_file: str | None = None) -> list[dict]:
     """Load all YAML test case files from a directory."""
     cases = []
-    for path in sorted(Path(cases_dir).glob("*.yaml")):
+    paths = [Path(cases_dir) / case_file] if case_file else sorted(Path(cases_dir).glob("*.yaml"))
+    for path in paths:
+        if not path.exists():
+            continue
         with open(path) as f:
             docs = yaml.safe_load(f)
             if isinstance(docs, list):
@@ -69,7 +72,7 @@ def extract_result_from_events(events: list[dict]) -> dict:
         elif ev_type == "tool.call":
             data = ev.get("data", {})
             tool_calls.append({
-                "tool_name": data.get("tool_name"),
+                "tool_name": data.get("tool_name") or data.get("name"),
                 "arguments": data.get("arguments"),
             })
 
@@ -170,7 +173,7 @@ async def run_case_live(
     case_artifacts = artifacts_dir / case_id
     case_artifacts.mkdir(parents=True, exist_ok=True)
 
-    headers = {"Authorization": f"Bearer {auth_token}"}
+    headers = {"Authorization": f"Bearer {auth_token}"} if auth_token else {}
 
     # 1. Create a conversation
     resp = await http_client.post(f"{base_url}/api/conversations", headers=headers)
@@ -228,6 +231,7 @@ async def run_case_live(
         "assertions": case.get("assertions", []),
         "response": extracted["response"],
         "tool_calls": extracted["tool_calls"],
+        "tool_result_codes": extracted["tool_result_codes"],
         "ttft_ms": extracted["ttft_ms"],
         "total_ms": extracted.get("total_ms") or wall_ms,
         "token_usage": extracted["token_usage"],
@@ -261,12 +265,13 @@ async def run_all_live(
     *,
     base_url: str,
     auth_token: str,
+    case_file: str | None = None,
     agent_mode: bool = False,
     artifacts_dir: str = "eval/artifacts",
     concurrency: int = 4,
 ) -> dict:
     """Run all cases against a live server with bounded concurrency."""
-    cases = load_cases(cases_dir)
+    cases = load_cases(cases_dir, case_file=case_file)
     if not cases:
         print(f"No cases found in {cases_dir}", file=sys.stderr)
         return {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0}
